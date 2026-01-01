@@ -1,0 +1,29 @@
+$SiteName = $Env:Site_Name
+$RelativeFilePath = $Env:Relative_File_Path
+$RelativeFilePath = "$SiteName\$RelativeFilePath" -replace '(\\\\|/)', '\'
+
+Write-Host ""
+Write-Host "Site Name = $SiteName"
+Write-Host "File Path = $RelativeFilePath"
+Write-Host ""
+  
+# Root Destination (IIS) 
+$RootDestination = '\\192.168.168.60\d$\VitalAxis\Websites-IIS'
+
+# Source file path (input file parameter)
+$SourceFile = "$Env:WORKSPACE\Deploy_File"
+
+# Construct the full destination path
+$DestinationDir = "$RootDestination\$RelativeFilePath"
+
+# Check if the parent directory exists, create it if not
+if (-Not (Test-Path -Path $(Split-Path $DestinationDir -Parent))) {
+    New-Item -Path $(Split-Path $DestinationDir -Parent) -ItemType Directory -Force
+}
+
+# Copy the file to the destination directory
+Copy-Item -Path $SourceFile -Destination $DestinationDir -Force
+
+Write-Host ""
+Write-Host "File has been deployed to '$RelativeFilePath'."
+

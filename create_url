@@ -1,0 +1,13 @@
+def URL = "${TeamName}${Environment}${Deployment}".toLowerCase()
+if (URL.length() > 0) {
+    URL = URL + '.vitalaxis.com'
+}
+
+if(Customization.equals('WebAPI')){
+    URL = "${TeamName}${Environment}${Deployment}apiservices".toLowerCase() + '.vitalaxis.com'
+}
+else if(Customization.equals('WCF')){
+    URL = "${TeamName}${Environment}${Deployment}services".toLowerCase() + '.vitalaxis.com'
+}
+
+return """<input type=\"text\" name=\"value\" value=\"${URL}\" class=\"jenkins-input\"/>"""

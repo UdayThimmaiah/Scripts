@@ -1,0 +1,31 @@
+# Days older than
+$OlderThan = 2
+
+# Path to the root folder
+$Path = "D:\VitalAxis\Jenkins_Build"
+
+$FreeSpaceBeforeCleanup = (Get-PSDrive D).Free
+$FreeSpaceBeforeCleanup = [Math]::round($FreeSpaceBeforeCleanup/1Gb, 3)
+
+Write-Host "Filtering folders older than $OlderThan days..."
+[System.Array] $Folders = Get-ChildItem -Path $Path -Directory -Recurse | Where Name -Match '^(\d*_)?(\d{12})$' | Where FullName -Match '\\buildspace\\' | Where LastWriteTime -lt (Get-Date).AddDays(-$OlderThan)
+
+if($Folders.Count -gt 0){
+    foreach($Folder in $Folders){
+        if(Test-Path -Path $Folder.FullName){
+            Write-Host "Deleting $($Folder.FullName)"
+            Remove-Item -Path $Folder.FullName -Recurse -Force
+        }
+    }
+
+    $FreeSpaceAfterCleanup = (Get-PSDrive D).Free
+    $FreeSpaceAfterCleanup = [Math]::round($FreeSpaceAfterCleanup/1Gb, 3)
+    
+    Write-Host ''
+    Write-Host "Free Space Before Cleanup = $FreeSpaceBeforeCleanup GB"
+    Write-Host "Free Space After Cleanup = $FreeSpaceAfterCleanup GB"
+}
+else{
+    Write-Host "No folders match the filter."
+}
+
