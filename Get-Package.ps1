@@ -1,0 +1,1 @@
+Get-Package | Select-Object Name, Version, ProviderName | Export-Csv -Path D:\InstalledSoftwares.csv -NoTypeInformation
