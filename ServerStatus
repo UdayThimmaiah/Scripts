@@ -1,0 +1,157 @@
+# Define servers with friendly names
+$servers = @{
+    "192.168.168.60"  = "Web Server - 168.60"
+    "192.168.168.81"  = "Web Server - 168.81"
+    "192.168.168.45"  = "Web Server - 168.45"
+    "192.168.168.26"  = "DB Server - 168.26"
+    "192.168.168.27"  = "DB Server - 168.27"
+    "192.168.168.94"  = "DB Server - 168.94"
+    "192.168.168.129" = "Build Server - 168.129"
+    "192.168.168.130" = "Build Server - 168.130"
+    "192.168.168.131" = "Build Server - 168.131"
+    "192.168.168.133" = "Build Server - 168.133"
+    "192.168.168.173" = "Build Server - 168.173"
+    "192.168.168.63"  = "App Server - 168.63"
+    "192.168.168.68"  = "App Server - 168.68"
+    "192.168.168.115" = "App Server - 168.115"
+    "192.168.169.18"  = "Elastic - VC - 169.18"
+    "192.168.168.86"  = "Elastic - Jupiter Sprint - Avior - 168.86"
+    "192.168.168.151" = "Orion - Rundeck - 168.151"
+    "192.168.168.150" = "Orion - RD - 168.150"
+    "192.168.168.97"  = "Elastic - Jupiter Dev - QC - 168.97"
+    "192.168.168.119" = "VMELIXIER01 - 168.119"
+}
+
+# Credentials
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = ConvertTo-SecureString $PropertyMapping."va.orion.password" -AsPlainText -Force
+$credential = New-Object System.Management.Automation.PSCredential ($username, $password)
+
+# Prepare output file path
+$outputFile = Join-Path $env:WORKSPACE "DiskUsageReport.txt"
+
+# Remove existing file if present
+$RetryTimeLimit = (Get-Date).AddMinutes(2)
+while (((Get-Date) -le $RetryTimeLimit) -and (Test-Path $outputFile)) { 
+    try {
+        Remove-Item -LiteralPath $outputFile -Force -ErrorAction Stop
+    }
+    catch {
+        $_.Exception.Message
+        Start-Sleep -Seconds 10
+    }
+}
+
+# Jenkins header text
+$header = @"
+ORION » JenkinsDetails » ServerStatus - Build #$env:BUILD_NUMBER - Successful:
+
+Check console output at $env:BUILD_URL to view the results.
+
+"@
+
+# Create/overwrite file with header
+Set-Content $outputFile -Value $header
+Write-Output $header
+
+# Add date line after header
+$dateString = (Get-Date).ToString("yyyy-MM-dd")
+$dateLine = "Server Status Today ($dateString) above 80% are :`n"
+while($true) {
+    try {
+        Add-Content $outputFile -Value $dateLine -ErrorAction Stop
+        break
+    }
+    catch {
+        $_.Exception.Message
+        Start-Sleep -Seconds 10
+    }
+}
+Write-Output $dateLine
+
+$ServerCount = 0
+
+# Loop over servers to check disk usage
+foreach ($ip in $servers.Keys) {
+    try {
+        $session = New-CimSession -ComputerName $ip -Credential $credential -Authentication Default
+        $disks = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=3" -CimSession $session
+
+        foreach ($disk in $disks) {
+            $sizeGB = [math]::Round($disk.Size / 1GB, 2)
+            $freeGB = [math]::Round($disk.FreeSpace / 1GB, 2)
+            $usedGB = $sizeGB - $freeGB
+            $percentUsed = [math]::Round(($usedGB / $sizeGB) * 100, 1)
+
+            # Only report disks with usage > 80%
+            if ($percentUsed -gt 80) {
+                $ServerCount++
+                $serverName = $servers[$ip]
+                $serverLine = "$serverName ($ip)"
+                while($true) {
+                    try {
+                        Add-Content $outputFile -Value $serverLine -ErrorAction Stop
+                        break
+                    }
+                    catch {}
+                }
+                Write-Output $serverLine
+
+                # Format drive letter with single colon + space
+                $driveLine = "Drive {0} : Total={1} GB, Used={2} GB, Free={3} GB ({4}% used)" -f $disk.DeviceID.TrimEnd(":"), $sizeGB, $usedGB, $freeGB, $percentUsed
+                while($true) {
+                    try {
+                        Add-Content $outputFile -Value $driveLine -ErrorAction Stop
+                        break
+                    }
+                    catch {}
+                }
+                Write-Output $driveLine
+
+                while($true) {
+                    try {
+                        Add-Content $outputFile -Value ""  # blank line after each server -ErrorAction Stop
+                        break
+                    }
+                    catch {}
+                }
+                Write-Output ""
+            }
+        }
+
+        # Close the CIM session
+        $session | Remove-CimSession
+    }
+    catch {
+        $errorLine = "ERROR: Could not connect to $ip. Error: $_"
+        while($true) {
+            try {
+                Add-Content $outputFile -Value $errorLine -ErrorAction Stop
+                break
+            }
+            catch {}
+        }
+        Write-Output $errorLine
+    }
+}
+
+if($ServerCount -eq 0) {
+    $driveLine = "All Servers are Below 80 %"
+    while($true) {
+        try {
+            Add-Content $outputFile -Value $driveLine -ErrorAction Stop
+            break
+        }
+        catch {}
+    }
+    Write-Output $driveLine
+}
+
+# Small delay to release file locks
+Start-Sleep -Seconds 2
+
+# Optionally output full report content again at the end (comment out if not needed)
+# Write-Output "`n----- Final Disk Usage Report -----`n"
+# Write-Output (Get-Content $outputFile -Raw)
+

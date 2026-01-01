@@ -1,0 +1,50 @@
+# Jenkins passes the choice parameter as an environment variable $env:DB
+$server = $env:DB
+
+# Set your SQL Server credentials here (better to use Jenkins Credentials plugin for security)
+$username = "Devopsappadmin"
+$password = "Qwe@123"
+
+# SQL query to get top 10 DB sizes in GB
+$query = @"
+SELECT TOP 10
+    DB_NAME(database_id) AS DatabaseName,
+    CAST(ROUND(SUM(size * 8.0 / 1024 / 1024), 2) AS DECIMAL(10,2)) AS SizeGB
+FROM
+    sys.master_files
+GROUP BY
+    database_id
+ORDER BY
+    SizeGB DESC;
+"@
+
+# Build the SQL connection string
+$connectionString = "Server=$server;Database=master;User ID=$username;Password=$password;Trusted_Connection=False;"
+
+# Load SQL Server assembly for SQL connection
+Add-Type -AssemblyName System.Data
+
+# Create SQL connection and command
+$connection = New-Object System.Data.SqlClient.SqlConnection
+$connection.ConnectionString = $connectionString
+
+$command = $connection.CreateCommand()
+$command.CommandText = $query
+
+try {
+    $connection.Open()
+    $reader = $command.ExecuteReader()
+
+    # Create a DataTable to hold results
+    $dataTable = New-Object System.Data.DataTable
+    $dataTable.Load($reader)
+    $connection.Close()
+
+    # Output the results nicely formatted
+    $dataTable | Format-Table -AutoSize
+}
+catch {
+    Write-Error "Failed to execute query on server $server. $_"
+    exit 1
+}
+

@@ -1,0 +1,198 @@
+# Read Jenkins parameters passed as environment variables
+$Server      = $env:Server
+$Group       = $env:Group
+$Environment = $env:Environment
+$Deployment  = $env:Deployment
+
+# Fallback defaults (optional)
+if (-not $Server)      { $Server = "192.168.168.129:8080" }
+if (-not $Group)       { $Group = "TITAN" }
+if (-not $Environment) { $Environment = "QC" }
+if (-not $Deployment)  { $Deployment = "LIS" }
+
+# Construct Jenkins input string
+$InputString = "$Group $Environment $Deployment"
+
+# Authentication
+$username = "Devopsappadmin"
+$apiToken = if ($env:API_TOKEN) { $env:API_TOKEN } else { "Qwe@123" }
+
+# Masked credentials
+function Mask-Username($user) {
+    if ($user.Length -le 5) {
+        return $user.Substring(0,1) + ('*' * ($user.Length - 1))
+    } else {
+        $start = $user.Substring(0,3)
+        $end = $user.Substring($user.Length - 2, 2)
+        $maskLength = $user.Length - 5
+        return $start + ('*' * $maskLength) + $end
+    }
+}
+$maskedUsername = Mask-Username $username
+$maskedApiToken = "<hidden>"
+
+# Output parameters
+Write-Host "JENKINS_SERVER = $Server"
+Write-Host "USERNAME       = $maskedUsername"
+Write-Host "API_TOKEN      = $maskedApiToken"
+Write-Host "GROUP          = $Group"
+Write-Host "ENVIRONMENT    = $Environment"
+Write-Host "DEPLOYMENT     = $Deployment"
+
+# Prepare for Jenkins REST API calls
+$JenkinsServer = $Server
+$baseUrl = "http://$JenkinsServer"
+$pair = "$username`:$apiToken"
+$encodedAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+$headers = @{ Authorization = "Basic $encodedAuth" }
+
+function Get-JobsAtLevel {
+    param([string]$url)
+    try {
+        $apiUrl = "$url/api/json?tree=jobs[name,url,_class]"
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
+        return $response.jobs
+    } catch {
+        Write-Error "Failed to get jobs from $url. Error: $_"
+        return $null
+    }
+}
+
+function Get-AllJobsRecursive {
+    param([string]$folderUrl)
+    $allJobs = @()
+    $jobsAtLevel = Get-JobsAtLevel -url $folderUrl
+    if (-not $jobsAtLevel) { return $allJobs }
+
+    foreach ($job in $jobsAtLevel) {
+        if ($job._class -match "Folder|MultiBranchProject|OrganizationFolder") {
+            $allJobs += Get-AllJobsRecursive -folderUrl $job.url.TrimEnd('/')
+        } else {
+            $allJobs += [PSCustomObject]@{
+                Name = $job.name
+                Url  = $job.url
+            }
+        }
+    }
+    return $allJobs
+}
+
+function DrillDown-Fuzzy {
+    param([string]$startUrl, [string[]]$tokens)
+    $currentUrl = $startUrl.TrimEnd('/')
+    foreach ($token in $tokens) {
+        $jobsAtLevel = Get-JobsAtLevel -url $currentUrl
+        if (-not $jobsAtLevel -or $jobsAtLevel.Count -eq 0) {
+            Write-Host "No jobs found at URL: $currentUrl"
+            return $null
+        }
+        $matchedJobs = $jobsAtLevel | Where-Object {
+            $_.name -and $_.name.ToLower().Contains($token.ToLower()) -and
+            ($_. _class -match "Folder|MultiBranchProject|OrganizationFolder")
+        }
+        if ($matchedJobs.Count -eq 0) {
+            Write-Host "No folder matching '$token' found at $currentUrl"
+            return $null
+        }
+        $matchedJob = $matchedJobs[0]
+        $currentUrl = $matchedJob.url.TrimEnd('/')
+    }
+    return $currentUrl
+}
+
+function Print-LatestBuildInfo {
+    param(
+        [string]$jobName,
+        [string]$jobUrl
+    )
+    $apiUrl = "$jobUrl/api/json"
+    try {
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
+        $lastBuild = $response.lastBuild
+        if ($lastBuild -ne $null) {
+            $buildNumber = $lastBuild.number
+            $buildUrl = $lastBuild.url
+            $buildDetails = Invoke-RestMethod -Uri "$buildUrl/api/json" -Headers $headers -Method Get
+            $buildStatus = $buildDetails.result
+
+            $buildTimestampMs = $buildDetails.timestamp
+            $buildDateTime = [DateTimeOffset]::FromUnixTimeMilliseconds($buildTimestampMs).DateTime
+
+            $causes = $buildDetails.actions | Where-Object { $_.causes } | ForEach-Object { $_.causes }
+            $triggeredBy = $causes | Where-Object { $_.userName } | Select-Object -First 1 -ExpandProperty userName
+            if (-not $triggeredBy) {
+                $triggeredBy = "Unknown or triggered by system"
+            }
+
+            $parameters = $buildDetails.actions | Where-Object { $_.parameters } | ForEach-Object { $_.parameters }
+            $branchParam = $parameters | Where-Object { $_.name -eq "Branch_Name" } | Select-Object -First 1
+            $branchName = if ($branchParam) { $branchParam.value } else { "Not found" }
+
+            $consoleUrl = "$buildUrl/consoleText"
+            $consoleText = Invoke-RestMethod -Uri $consoleUrl -Headers $headers -Method Get -UseBasicParsing
+
+            $sqlStatusLine = ($consoleText -split "`n" | Where-Object { $_ -match 'SQL Status\s*=\s*(\w+)' }) | Select-Object -First 1
+            $sqlStatus = if ($sqlStatusLine -match 'SQL Status\s*=\s*(\w+)') { $matches[1] } else { "Not found in console log" }
+
+            Write-Host "-----------------------------------------------"
+            Write-Host "Job Name        : $jobName"
+            Write-Host "Last Build No.  : $buildNumber"
+            Write-Host "Build Status    : $buildStatus"
+            Write-Host "Build DateTime  : $buildDateTime"
+            Write-Host "Triggered By    : $triggeredBy"
+            Write-Host "Branch Name     : $branchName"
+            Write-Host "SQL Status      : $sqlStatus"
+            Write-Host "Job URL         : $jobUrl"
+            Write-Host "-----------------------------------------------`n"
+        } else {
+            Write-Host "No builds found for job '$jobName'."
+        }
+    } catch {
+        Write-Warning "Failed to fetch build info for job '$jobName'. Error: $_"
+    }
+}
+
+# MAIN logic
+$tokens = $InputString.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+if ($tokens.Count -lt 2) {
+    Write-Error "Input string must contain at least two tokens: folder path and deployment name."
+    exit 1
+}
+
+$folderTokens = $tokens[0..($tokens.Count - 2)]
+$deploymentToken = $tokens[-1].ToLower()
+
+Write-Host "Drilling down fuzzy on folder path: $($folderTokens -join ' -> ') ..."
+$finalFolderUrl = DrillDown-Fuzzy -startUrl $baseUrl -tokens $folderTokens
+
+if (-not $finalFolderUrl) {
+    Write-Host "Failed to drill down on folder path: $($folderTokens -join ', ')"
+    exit 0
+}
+
+Write-Host "Getting all jobs recursively under $finalFolderUrl ..."
+$allJobsUnderFinalFolder = Get-AllJobsRecursive -folderUrl $finalFolderUrl
+
+$matchedJobs = $allJobsUnderFinalFolder | Where-Object {
+    $_.Name.ToLower().Contains($deploymentToken)
+}
+
+if (-not $matchedJobs -or $matchedJobs.Count -eq 0) {
+    Write-Host "No jobs found containing deployment name '$deploymentToken' under $finalFolderUrl"
+    exit 0
+}
+
+$preferredJob = $matchedJobs | Where-Object { $_.Name.ToLower().EndsWith($deploymentToken) } | Select-Object -First 1
+if (-not $preferredJob) {
+    $preferredJob = $matchedJobs | Select-Object -First 1
+    if ($preferredJob) {
+        Write-Host "No job ends with '$deploymentToken'. Using closest match: $($preferredJob.Name)"
+    }
+}
+
+if ($preferredJob) {
+    Print-LatestBuildInfo -jobName $preferredJob.Name -jobUrl $preferredJob.Url
+} else {
+    Write-Host "No suitable job found to display build info."
+}
+

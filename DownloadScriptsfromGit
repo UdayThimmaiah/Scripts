@@ -1,0 +1,57 @@
+$Branch = 'Titan_Release_02Jun2025_V6.87_SP45';
+$ScriptsFolder = 'C:\Users\udaykumar.t\Downloads\TITAN\SP45';
+
+$BranchFolder = $Branch -replace '.*?(\d{2}\w{3}\d{4}).*', '$1';
+$YearFolder = $BranchFolder -replace '.*?(\d{4})$', '$1';
+$ProjectId = 56;
+
+if(-not(Test-Path (Split-Path "$ScriptsFolder\01.PRE\UserDefinedTypes.sql" -Parent))) {
+    New-Item -ItemType Directory -Path (Split-Path "$ScriptsFolder\01.PRE\UserDefinedTypes.sql" -Parent) -Force | Out-Null;
+}
+Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/vitalaxis/web/raw/$Branch/database/type/UserDefinedTypes.sql" -Method Get -OutFile "$ScriptsFolder\01.PRE\UserDefinedTypes.sql" -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop;
+
+if(((Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=database/ProductionScripts/00.ReleaseFiles/$BranchFolder&ref=$Branch" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json).Count -gt 0) {
+    [Array] $Folders = (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=database/ProductionScripts/00.ReleaseFiles/$BranchFolder&ref=$Branch&per_page=100" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json;
+}
+else {
+    [Array] $Folders = (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=database/ProductionScripts/00.ReleaseFiles/$YearFolder/$BranchFolder&ref=$Branch&per_page=100" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json;
+}
+
+# 01.PRE
+foreach($Folder in $Folders) {
+    if($Folder.type -eq 'tree') {
+        $i = 1;
+        while(((Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=$($Folder.path)&ref=$Branch&page=$i" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json).Count -gt 0) {
+            [Array] $Files = (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=$($Folder.path)&ref=$Branch&page=$i" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json;
+            foreach($File in $Files) {
+                if($File.type -eq 'blob') {
+                    if(-not(Test-Path "$ScriptsFolder\$($Folder.name)")) {
+                        New-Item -ItemType Directory -Path "$ScriptsFolder\$($Folder.name)" -Force | Out-Null;
+                    }
+                    $OutFile = "$ScriptsFolder\$($Folder.name)\$($File.name)";
+                    (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/vitalaxis/web/raw/$Branch/$($File.path)" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | Out-File -LiteralPath $OutFile;
+                }
+            }
+            $i++;
+        }
+    }
+}
+
+# 02.MAIN
+# foreach($Folder in @('functions', 'views', 'procedures', 'triggers')) {
+#     $i = 1;
+#     while(((Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=database/$($Folder)&ref=$Branch&page=$i" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json).Count -gt 0) {
+#         [Array] $Files = (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/api/v4/projects/$ProjectId/repository/tree?path=database/$($Folder)&ref=$Branch&page=$i" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | ConvertFrom-Json;
+#         foreach($File in $Files) {
+#             if($File.type -eq 'blob') {
+#                 if(-not(Test-Path (Split-Path "$ScriptsFolder\$($File.path)" -Parent))) {
+#                     New-Item -ItemType Directory -Path (Split-Path "$ScriptsFolder\$($File.path)" -Parent) -Force | Out-Null;
+#                 }
+#                 $OutFile = "$ScriptsFolder\$($File.path)";
+#                 (Invoke-WebRequest -Uri "https://vagit.vitalaxis.com/vitalaxis/web/raw/$Branch/$($File.path)" -Method Get -Headers @{'Private-Token'='Yy9v4R8WLmuq_xgygE_k'} -UseBasicParsing -ErrorAction Stop).Content | Out-File -LiteralPath $OutFile;
+#             }
+#         }
+#         $i++;
+#     }
+# }
+

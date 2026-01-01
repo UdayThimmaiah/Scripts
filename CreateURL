@@ -1,0 +1,592 @@
+###############Groovy#####################
+def URL = "${TeamName}${Environment}${Deployment}".toLowerCase()
+if (URL.length() > 0) {
+    URL = URL + '.vitalaxis.com'
+}
+
+if(Customization.equals('WebAPI')){
+    def DeploymentName = Deployment.replaceFirst(/-VAWEBAPIServices$/, "")
+    URL = "${TeamName}${Environment}${DeploymentName}apiservices".toLowerCase() + '.vitalaxis.com'
+}
+else if(Customization.equals('WCF')){
+    def DeploymentName = Deployment.replaceFirst(/-VAAPIServices$/, "")
+    URL = "${TeamName}${Environment}${DeploymentName}services".toLowerCase() + '.vitalaxis.com'
+}
+else if(Customization.equals('VO')){
+    def DeploymentName = Deployment.replaceFirst(/-VOWEB$/, "VO")
+    DeploymentName = DeploymentName.replaceFirst(/-VOAPI$/, "VOAPI")
+    URL = "${TeamName}${Environment}${DeploymentName}".toLowerCase() + '.vitalaxis.com'
+}
+
+return """<input type=\"text\" name=\"value\" value=\"${URL}\" class=\"jenkins-input\"/>"""
+###############################################################
+
+################################################
+if($ENV:LogsServer -eq $null){
+    $ENV:LogsServer = '-'
+}
+if($ENV:FilesServer -eq $null){
+    $ENV:FilesServer = '-'
+}
+
+# IIS
+if(($ENV:URL -ne $null) -and ($ENV:IISServer -ne '-')){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-IIS_Setup.ps1 -TeamName "$ENV:TeamName" -Environment "$ENV:Environment" -Deployment "$ENV:Deployment" -URL "$ENV:URL" -IISServer "$ENV:IISServer" -LogsServer "$ENV:LogsServer" -FilesServer "$ENV:FilesServer"
+}
+
+# DB
+if(($ENV:DBName -ne $null) -and ($ENV:DBServer -ne $null) -and ($ENV:DBSource -ne '-') -and ($ENV:DBSourceDeployment -ne $null)){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-DB_Setup.ps1 -DBName "$ENV:DBName" -DBServer "$ENV:DBServer" -DBSource "$ENV:DBSource" -DBSourceDeployment "$ENV:DBSourceDeployment" -FilesServer "$ENV:FilesServer"
+}
+
+################################################
+
+########Full For Reference#####################Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+5
+3
+Udaykumar T
+
+log out
+Dashboard
+ORION
+Create-NewURL
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Create a new URL (IIS + Database)
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+String Parameter
+?
+
+Name
+?
+TeamName
+Default Value
+?
+Description
+?
+Name of the team the URL belongs to. Example: TITAN
+Plain text
+Preview
+
+Trim the string
+?
+String Parameter
+?
+
+Name
+?
+Environment
+Default Value
+?
+Description
+?
+Example: QC
+Plain text
+Preview
+
+Trim the string
+?
+String Parameter
+?
+
+Name
+?
+Deployment
+Default Value
+?
+Description
+?
+Example 1: LIS
+Example 2: LIS-VAWEBAPIServices
+Example 3: LIS-VAAPIServices
+Plain text
+Preview
+
+Trim the string
+?
+Choice Parameter
+?
+
+Name
+?
+Customization
+Choices
+?
+None
+WebAPI
+WCF
+VO
+Description
+?
+Custom URL naming convention
+Plain text
+Preview
+Active Choices Reactive Reference Parameter
+?
+
+Name
+URL
+Script
+Groovy Script
+?
+Script
+Groovy Script
+def URL = "${TeamName}${Environment}${Deployment}".toLowerCase()
+if (URL.length() > 0) {
+    URL = URL + '.vitalaxis.com'
+}
+
+if(Customization.equals('WebAPI')){
+    def DeploymentName = Deployment.replaceFirst(/-VAWEBAPIServices$/, "")
+    URL = "${TeamName}${Environment}${DeploymentName}apiservices".toLowerCase() + '.vitalaxis.com'
+}
+else if(Customization.equals('WCF')){
+    def DeploymentName = Deployment.replaceFirst(/-VAAPIServices$/, "")
+    URL = "${TeamName}${Environment}${DeploymentName}services".toLowerCase() + '.vitalaxis.com'
+}
+else if(Customization.equals('VO')){
+    def DeploymentName = Deployment.replaceFirst(/-VOWEB$/, "VO")
+    DeploymentName = DeploymentName.replaceFirst(/-VOAPI$/, "VOAPI")
+    URL = "${TeamName}${Environment}${DeploymentName}".toLowerCase() + '.vitalaxis.com'
+}
+
+return """<input type=\"text\" name=\"value\" value=\"${URL}\" class=\"jenkins-input\"/>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+URL Binding for the IIS Site
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+Customization,TeamName,Environment,Deployment
+Advanced
+Edited
+Choice Parameter
+?
+
+Name
+?
+IISServer
+Choices
+?
+-
+192.168.168.45
+192.168.168.60
+192.168.168.81
+Description
+?
+IIS Server where the URL will be created
+Plain text
+Preview
+Active Choices Reactive Reference Parameter
+?
+
+Name
+LogsServer
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return """<input type=\"text\" name=\"value\" value=\"${IISServer}\" class=\"jenkins-input\"/>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Server where Website Logs will be stored (Leave it blank if Website-Logs folder isn't required)
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+IISServer
+Advanced
+Edited
+Active Choices Reactive Reference Parameter
+?
+
+Name
+FilesServer
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(IISServer.equals('192.168.168.45')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.115\" class=\"jenkins-input\"/>"""
+}
+else if(IISServer.equals('192.168.168.60')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.68\" class=\"jenkins-input\"/>"""
+}
+else if(IISServer.equals('192.168.168.81')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.63\" class=\"jenkins-input\"/>"""
+}
+else{
+    return """<input type=\"text\" name=\"value\" value=\"\" class=\"jenkins-input\"/>"""
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Server where Website Files will be stored (Leave it blank if Website-Files folder isn't required)
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+IISServer
+Advanced
+Edited
+Active Choices Reactive Reference Parameter
+?
+
+Name
+DBName
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return """<input type=\"text\" name=\"value\" value=\"${TeamName}-${Environment}-${Deployment}\" class=\"jenkins-input   \"/>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Name of Database (Leave it blank if creation of a DB isn't required)
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+TeamName,Environment,Deployment
+Advanced
+Edited
+Active Choices Reactive Reference Parameter
+?
+
+Name
+DBServer
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(IISServer.equals('192.168.168.45')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.27\" class=\"jenkins-input\"/>"""
+}
+else if(IISServer.equals('192.168.168.60')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.26\" class=\"jenkins-input\"/>"""
+}
+else if(IISServer.equals('192.168.168.81')){
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.94\" class=\"jenkins-input\"/>"""
+}
+else{
+    return """<input type=\"text\" name=\"value\" value=\"192.168.168.26\" class=\"jenkins-input\"/>"""
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Server where Database is created (Leave it blank if creation of a DB isn't required)
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+IISServer
+Advanced
+Edited
+Choice Parameter
+?
+
+Name
+?
+DBSource
+Choices
+?
+-
+192.168.168.49
+192.168.168.26
+192.168.168.27
+192.168.168.94
+Description
+?
+Server where Source DB is located
+Plain text
+Preview
+Active Choices Reactive Reference Parameter
+?
+
+Name
+DBSourceDeployment
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return """<input type=\"text\" name=\"value\" value=\"${Deployment}\" class=\"jenkins-input\"/>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Source Deployment bak to restore from (Leave it blank if creation of a DB isn't required)
+Example 1: LIS                         (When Source = 49)
+Example 2: TITAN-SPRINT-LIS  (When Source = 26)
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+Deployment
+Advanced
+Edited
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.133:8080/project/ORION/Create-NewURL
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+
+Command
+See the list of available environment variables
+if($ENV:LogsServer -eq $null){
+    $ENV:LogsServer = '-'
+}
+if($ENV:FilesServer -eq $null){
+    $ENV:FilesServer = '-'
+}
+
+# IIS
+if(($ENV:URL -ne $null) -and ($ENV:IISServer -ne '-')){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-IIS_Setup.ps1 -TeamName "$ENV:TeamName" -Environment "$ENV:Environment" -Deployment "$ENV:Deployment" -URL "$ENV:URL" -IISServer "$ENV:IISServer" -LogsServer "$ENV:LogsServer" -FilesServer "$ENV:FilesServer"
+}
+
+# DB
+if(($ENV:DBName -ne $null) -and ($ENV:DBServer -ne $null) -and ($ENV:DBSource -ne '-') -and ($ENV:DBSourceDeployment -ne $null)){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-DB_Setup.ps1 -DBName "$ENV:DBName" -DBServer "$ENV:DBServer" -DBSource "$ENV:DBSource" -DBSourceDeployment "$ENV:DBSourceDeployment" -FilesServer "$ENV:FilesServer"
+}
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+if($ENV:LogsServer -eq $null){
+    $ENV:LogsServer = '-'
+}
+if($ENV:FilesServer -eq $null){
+    $ENV:FilesServer = '-'
+}
+ 
+# IIS
+if(($ENV:URL -ne $null) -and ($ENV:IISServer -ne '-')){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-IIS_Setup.ps1 -TeamName "$ENV:TeamName" -Environment "$ENV:Environment" -Deployment "$ENV:Deployment" -URL "$ENV:URL" -IISServer "$ENV:IISServer" -LogsServer "$ENV:LogsServer" -FilesServer "$ENV:FilesServer"
+}
+ 
+# DB
+if(($ENV:DBName -ne $null) -and ($ENV:DBServer -ne $null) -and ($ENV:DBSource -ne '-') -and ($ENV:DBSourceDeployment -ne $null)){
+    PowerShell D:\VitalAxis\Jenkins_Build\ORION\Automate-DB_Setup.ps1 -DBName "$ENV:DBName" -DBServer "$ENV:DBServer" -DBSource "$ENV:DBSource" -DBSourceDeployment "$ENV:DBSourceDeployment" -FilesServer "$ENV:FilesServer"
+}
+ 
+

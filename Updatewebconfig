@@ -1,0 +1,288 @@
+[Array] $IISSites = $ENV:IISSite -split ','
+
+foreach($IISSite in $IISSites){
+    PowerShell .\Update-WebConfig.ps1 -Server $ENV:Server -Operation $ENV:Operation -IISSite $IISSite -Key $ENV:Key -Value $ENV:Value
+    }
+
+#############Full for reference#####################
+
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+5
+3
+Udaykumar T
+
+log out
+Dashboard
+ORION
+Update-WebConfig
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Check / Update [Add New / Overwrite Existing] Value of selected Key in Web.config file of selected IIS Site.
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+Server
+Choices
+?
+192.168.168.45
+192.168.168.60
+192.168.168.81
+Description
+?
+Server where the IIS Site is hosted
+Plain text
+Preview
+Choice Parameter
+?
+
+Name
+?
+Operation
+Choices
+?
+Check_Value
+Update_Value
+Description
+?
+Operation to perform on the selected IIS Site
+Plain text
+Preview
+Active Choices Reactive Parameter
+?
+
+Name
+IISSite
+Script
+Groovy Script
+?
+Script
+Groovy Script
+def Script = evaluate(new File('D:\\VitalAxis\\Jenkins_Build\\ORION\\Properties\\IISSiteNames.groovy'))
+return Script.GetSiteNames(Server)
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+IIS Site Name ( Maintained in a Properties file ) ( Run "Update-IISSitesList" Job to update the file )
+Choice Type
+
+Check Boxes
+Referenced parameters
+?
+Server
+
+Enable filters
+?
+Filter starts at
+?
+1
+String Parameter
+?
+
+Name
+?
+Key
+Default Value
+?
+Description
+?
+Name of the Key in Web.config
+Plain text
+Preview
+
+Trim the string
+?
+Active Choices Reactive Reference Parameter
+?
+
+Name
+Value
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Operation.equals('Check_Value')){
+    return """<input type=\"text\" name=\"value\" value=\"-\" class=\"jenkins-input\"/>"""
+    }
+    else if(Operation.equals('Update_Value')){
+        return """<input type=\"text\" name=\"value\" value=\"\" class=\"jenkins-input\"/>"""
+	}
+
+	The script is already approved
+
+	Use Groovy Sandbox
+	?
+	Additional classpath
+	?
+	Add entry
+	Fallback Script
+	Groovy Script
+	return ''
+	The script is already approved
+
+	Use Groovy Sandbox
+	?
+	Additional classpath
+	?
+	Add entry
+	Description
+	?
+	New Value for the selected Key [ Only required if Operation = Update ]
+	Choice Type
+
+	Formatted HTML
+	Referenced parameters
+	?
+	Operation
+	Advanced
+	Edited
+	Add Parameter
+
+	Throttle builds
+	?
+	Job config history change message
+	?
+
+	Execute concurrent builds if necessary
+	?
+	JDK
+	JDK to be used for this project
+
+	(System)
+
+	Restrict where this project can be run
+	?
+	Advanced
+	Edited
+	Source Code Management
+	None
+	Git
+	?
+	Build Triggers
+
+	Trigger builds remotely (e.g., from scripts)
+	?
+
+	Build after other projects are built
+	?
+
+	Build periodically
+	?
+
+	Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.133:8080/project/ORION/Update-WebConfig
+	?
+
+	Enable Artifactory trigger
+
+	Poll SCM
+	?
+	Build Environment
+
+	Delete workspace before build starts
+
+	Mask passwords and regexes (and enable global passwords)
+	?
+
+	Use secret text(s) or file(s)
+	?
+
+	Provide Configuration files
+	?
+
+	Add timestamps to the Console Output
+
+	Ant/Ivy-Artifactory Integration
+
+	Generic-Artifactory Integration
+
+	Gradle-Artifactory Integration
+
+	Inspect build log for published build scans
+
+	Maven3-Artifactory Integration
+
+	Set jenkins user build variables
+	?
+
+	With Ant
+	?
+	Build Steps
+	PowerShell
+	?
+
+	Command
+	See the list of available environment variables
+	1
+	2
+	3
+	4
+	5
+	6
+	[Array] $IISSites = $ENV:IISSite -split ','
+	 
+	 foreach($IISSite in $IISSites){
+	     PowerShell .\Update-WebConfig.ps1 -Server $ENV:Server -Operation $ENV:Operation -IISSite $IISSite -Key $ENV:Key -Value $ENV:Value
+	     }
+	      
+
+	      Stop On Errors
+	      ?
+
+	      Use PowerShell profile
+	      ?
+	      Advanced
+	      Add build step
+	      Post-build Actions
+	      Add post-build action
+	      Save
+	      Apply
+	      REST API
+	      Jenkins 2.452.1

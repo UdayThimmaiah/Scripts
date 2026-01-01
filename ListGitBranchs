@@ -1,0 +1,11 @@
+#######PowerShell Scripts############
+Write-Host $ENV:GitUrl
+Write-Host $ENV:GitBranch
+###################################
+####Groovy#################
+def gettags = ("git ls-remote -t -h http://lohith.jayanna:Yy9v4R8WLmuq_xgygE_k@${GitUrl}").execute()
+return gettags.text.readLines().collect { 
+  it.split()[1].replaceAll('refs/heads/', '').replaceAll('refs/tags/', '').replaceAll("\\^\\{\\}", '')
+  }
+
+###################################

@@ -1,0 +1,54 @@
+
+[Array] $Databases = $ENV:Database -split ','
+
+"----------------------------------"
+$Databases
+"----------------------------------"
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+$FreeSpaceBeforeCleanup = Invoke-Command -ComputerName $ENV:Server -ScriptBlock { (Get-PSDrive D).Free } -Credential $Credentials
+$FreeSpaceBeforeCleanup = [Math]::round($FreeSpaceBeforeCleanup/1Gb, 3)
+
+foreach($Database in $Databases) {
+    "Database = $Database"
+
+    $SetRecoveryModel = @"
+    ALTER DATABASE [$Database]
+    SET RECOVERY SIMPLE;
+    GO
+"@
+
+    $ShrinkLogFile = @"
+    DBCC SHRINKFILE (VALive_log, 0);
+    GO
+"@
+
+    Write-Host "Setting Recovery Model to Simple"
+    try {
+        Invoke-Sqlcmd -ServerInstance $ENV:Server -Database $Database -Credential $Credentials -Query $SetRecoveryModel -ErrorAction Stop -TrustServerCertificate
+    }
+    catch {
+        $_
+    }
+
+    Write-Host "Shrinking Log File"
+    try {
+        Invoke-Sqlcmd -ServerInstance $ENV:Server -Database $Database -Credential $Credentials -Query $ShrinkLogFile -ErrorAction Stop -TrustServerCertificate
+    }
+    catch {
+        $_
+    }
+}
+
+$FreeSpaceAfterCleanup = Invoke-Command -ComputerName $ENV:Server -ScriptBlock { (Get-PSDrive D).Free } -Credential $Credentials
+$FreeSpaceAfterCleanup = [Math]::round($FreeSpaceAfterCleanup/1Gb, 3)
+  
+Write-Host ''
+Write-Host "Free Space Before Shrink = $FreeSpaceBeforeCleanup GB"
+Write-Host "Free Space After Shrink = $FreeSpaceAfterCleanup GB"
+

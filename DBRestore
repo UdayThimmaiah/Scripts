@@ -1,0 +1,2004 @@
+# Checking if PowerShell modules are installed
+if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+    #Install-Module -Name SqlServer -Force
+    #Install-Module -Name SqlServer -AllowClobber
+    Install-Module -Name SqlServer
+}
+Import-Module SqlServer
+
+# Reading Properties File
+#$PropertyMapping = ConvertFrom-StringData (Get-Content "c:\011_Properties.properties" -Raw)
+#$Database = $PropertyMapping."properties.main.databaseName"
+#$BackupFile = $PropertyMapping."properties.main.backupFile"
+#$ServerInstance = $PropertyMapping."properties.main.serverInstance"
+#$DataPath = $PropertyMapping."properties.main.dataPath"
+#$LogPath = $PropertyMapping."properties.main.logPath"
+#$MemoryPath = $PropertyMapping."properties.main.memoryPath"
+
+
+$Database = ${ENV:databaseName}
+$ServerInstance = "192.168.168.26"
+
+$BackupFile = "\\192.168.168.49\LocalDBBackup\DB_RESTORE_AUTOMATION"
+$BackupFileRootPath = $BackupFile
+
+$DataPath   = "D:\VitalAxis\DBFILES\DATA"
+$LogPath    = "D:\VitalAxis\DBFILES\LOG"
+$MemoryPath = "D:\VitalAxis\DBFILES\FILESTREAM"
+
+
+#$Database = "Test"
+#$BackupFile = "\\VMOPSDB19\LocalDBBackup\UPM\VAUPM_Local_20220104042040.BAK"
+
+$BackupFileRootPath = $BackupFileRootPath + "\" + $Database.Substring($Database.LastIndexOf('-') + 1)
+$BackupFile = (Get-ChildItem "$BackupFileRootPath" | SELECT FullName, LastWriteTime | Sort-Object -Descending -Property 'LastWriteTime')[0].FullName
+
+
+# Get Logical File Names
+$DataFileLogicalName1 = ""
+$DataFileLogicalName2 = ""
+$LogFileLogicalName = ""
+$MemoryFileLogicalName = ""
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+
+
+
+Write-Host ''
+Write-Host "Database = $Database"
+
+
+Write-Host 'Saving Back-up of selected tables'
+# Backup Tables (Schema and Data)
+[System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMO') | Out-Null
+
+# Array of Tables
+$Tables = @('Hl7IntegrationMaster','IntegrationDistConfig','IntegrationMapping','L2LConfigurations','VaRules','W700Applications','W700Jobs','W700Properties','ArchivedCases')
+
+# Output File
+$InsertScriptFile_PK = ".\$($Database)_PK.sql"
+$InsertScriptFile_FK = ".\$($Database)_FK.sql"
+
+while($true) {
+    $InsertScriptFileExists = $false
+    try { $InsertScriptFileExists = Test-Path -Path $InsertScriptFile_PK -ErrorAction Stop }
+    catch { $InsertScriptFileExists = $true }
+    if(-not $InsertScriptFileExists) { break }
+
+    try { Remove-Item -Path $InsertScriptFile_PK -Force -ErrorAction Stop }
+    catch {}
+}
+
+# Target Database Server
+$Server = New-Object ('Microsoft.SqlServer.Management.Smo.Server') "$ServerInstance"
+
+# Target Database
+$DatabaseObject = $Server.databases["$Database"]
+
+# New Scripter Object
+$TableScripter = New-Object ('Microsoft.SqlServer.Management.Smo.Scripter')($Server)
+
+# Define options for the Scripter
+$TableScripter.Options.ScriptData = $True
+$TableScripter.Options.ScriptSchema = $False
+$TableScripter.Options.AppendToFile = $True
+$TableScripter.Options.AllowSystemObjects = $False
+$TableScripter.Options.ClusteredIndexes = $True
+$TableScripter.Options.Indexes = $True
+$TableScripter.Options.ToFileOnly = $True
+$TableScripter.Options.Filename = $InsertScriptFile_PK
+
+# Build out the Script for each Table in the PK Array
+foreach ($Table in $Tables)
+{
+    $TableScripter.enumscript(@($DatabaseObject.tables[$Table]))
+}
+
+
+# Backup ExtAttrValue
+$ExtAttrValue = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT * from VaEntityExtAttributes WHERE ExtAttrName LIKE '%External.AppAuthenticationConfig%'" | Select-Object -ExpandProperty ExtAttrValue
+$ExtAttrValue2 = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT * from VaEntityExtAttributes WHERE ExtAttrName LIKE '%External.AppAuthenticationConfig%'" | Select-Object -ExpandProperty ExtAttrValue2
+
+
+
+# Save Backup of Current Database
+#Backup-SqlDatabase -ServerInstance "$ServerInstance"  -Database "$Database" -BackupFile  "\\SERVER\bckpath\DBname-$($Date).bak"
+Backup-SqlDatabase -ServerInstance "$ServerInstance"  -Database "$Database" -BackupFile  "\\$ServerInstance\d$\SQL-DB-BACKUP\$Database.bak" -Credential $Credentials
+
+# Drop Current Database
+if(Get-SqlDatabase -ServerInstance "$ServerInstance" -Name "$Database" -Credential $Credentials -ErrorAction SilentlyContinue) {
+    #Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query "DROP DATABASE [$Database]"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query "DECLARE @kill varchar(8000) = ''; SELECT @kill = @kill + 'kill ' + CONVERT(varchar(5), session_id) + ';' FROM sys.dm_exec_sessions WHERE database_id  = db_id('$Database') AND is_user_process = 1; EXEC(@kill);  "
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query " DROP DATABASE [$Database];"
+    Write-Host "Dropping Database $Database"
+}
+#Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials - $kill
+
+
+# Data File, Log File, Memory File Names
+$DataTable = Invoke-Sqlcmd -ServerInstance $ServerInstance -Username "$Username" -Password "$Password" "restore filelistonly from disk='$BackupFile'"
+
+foreach ($r in $DataTable)
+{
+    if ($r.Type -eq "L")
+    {
+        $LogFileLogicalName = $r.LogicalName
+    }
+    elseif ($r.Type -eq "D")
+    {
+        if($DataFileLogicalName1 -eq "") {
+            $DataFileLogicalName1 = $r.LogicalName
+        }
+        else {
+            $DataFileLogicalName2 = $r.LogicalName
+        }
+    }
+    elseif ($r.Type -eq "S") {
+        $MemoryFileLogicalName = $r.LogicalName
+    }
+}
+
+$DataFile = "$DataPath\$Database.mdf"
+$DataFile2 = "$DataPath\$Database" + "_2.mdf"
+$LogFile = "$LogPath\$Database.ldf"
+$MemoryFile = "$MemoryPath\$Database" + "_InMem"
+
+#$MemoryFile = "$MemoryPath\$MemoryFileLogicalName"
+
+#Write-Host "--------------------"
+#Write-Host $DataFileLogicalName1
+#Write-Host $DataFileLogicalName2
+#Write-Host $LogFileLogicalName
+#Write-Host $MemoryFileLogicalName
+#Write-Host "======================="
+
+
+# Restore Database
+$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($DataFileLogicalName1, $DataFile)
+$RelocateData2 = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($DataFileLogicalName2, $DataFile2)
+$RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($LogFileLogicalName, $LogFile)
+if($MemoryFileLogicalName.length -gt 0) {
+    # Restore data, log, memory
+    $RelocateMemory = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($MemoryFileLogicalName, $MemoryFile)
+
+    if($DataFileLogicalName2.length -gt 0) {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateData2,$RelocateLog, $RelocateMemory)
+    }
+    else {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateLog, $RelocateMemory)
+    }
+}
+else {
+    # Restore data, log
+    if($DataFileLogicalName2.length -gt 0) {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateData2,$RelocateLog)
+    }
+    else {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateLog)
+    }
+}
+
+Write-Host "Database $Database Restored Successfully"
+Write-Host ""
+
+
+
+
+Write-Host 'Saving Back-up of selected tables (Foreign_Key Tables)'
+# Backup Tables (Schema and Data)
+[System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMO') | Out-Null
+
+# Array of Tables
+$TablesFK = @('AssociatedAccounts','VaIntRecipient')
+
+# Output File
+$InsertScriptFile_FK = ".\$($Database)_FK.sql"
+
+while($true) {
+    $InsertScriptFileExists = $false
+    try { $InsertScriptFileExists = Test-Path -Path $InsertScriptFile_FK -ErrorAction Stop }
+    catch { $InsertScriptFileExists = $true }
+    if(-not $InsertScriptFileExists) { break }
+
+    try { Remove-Item -Path $InsertScriptFile_FK -Force -ErrorAction Stop }
+    catch {}
+}
+
+# Target Database Server
+$Server = New-Object ('Microsoft.SqlServer.Management.Smo.Server') "$ServerInstance"
+
+# Target Database
+$DatabaseObject = $Server.databases["$Database"]
+
+# New Scripter Object
+$TableScripter = New-Object ('Microsoft.SqlServer.Management.Smo.Scripter')($Server)
+
+# Define options for the Scripter
+$TableScripter.Options.ScriptData = $True
+$TableScripter.Options.ScriptSchema = $False
+$TableScripter.Options.AppendToFile = $True
+$TableScripter.Options.AllowSystemObjects = $False
+$TableScripter.Options.ClusteredIndexes = $True
+$TableScripter.Options.Indexes = $True
+$TableScripter.Options.ToFileOnly = $True
+$TableScripter.Options.Filename = $InsertScriptFile_FK
+
+# Build out the Script for each Table in the FK Array
+foreach ($Table in $TablesFK)
+{
+    $TableScripter.enumscript(@($DatabaseObject.tables[$Table]))
+}
+
+
+
+# Restore ExtAttrValue
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "UPDATE VaEntityExtAttributes SET ExtAttrValue = '$ExtAttrValue' WHERE ExtAttrName = 'External.AppAuthenticationConfig'"
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "UPDATE VaEntityExtAttributes SET ExtAttrValue2 = '$ExtAttrValue2' WHERE ExtAttrName = 'External.AppAuthenticationConfig'"
+
+
+
+
+# Add SQL Users
+$NewDBUser = ($Database -Replace("-", "")) +'_RO'
+$Password = "Va@2021"
+$Database = $Database
+
+
+$Mastersql = @"
+USE [master]
+GO
+CREATE LOGIN [$NewDBUser] WITH PASSWORD='$Password', DEFAULT_DATABASE=[master], DEFAULT_LANGUAGE=[us_english], CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+go
+"@
+
+
+$DBsql = @"
+USE [$Database]
+
+GO
+CREATE USER [$NewDBUser] FOR LOGIN [$NewDBUser] WITH DEFAULT_SCHEMA=[dbo]
+EXEC sp_addrolemember 'db_datareader', '$NewDBUser'
+go
+"@
+
+
+if(Get-SqlLogin -ServerInstance "$ServerInstance" -Credential $Credentials  -LoginName "$NewDBUser" -ErrorAction SilentlyContinue) {
+    Write-Host "$NewDBUser Exists"
+    
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [$($NewDBUser.Split('_')[0])] FROM LOGIN [$($NewDBUser.Split('_')[0])];EXEC sp_addrolemember 'db_owner', '$($NewDBUser.Split('_')[0])';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [$NewDBUser] FROM LOGIN [$NewDBUser];EXEC sp_addrolemember 'db_datareader', '$NewDBUser';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQC_RW] FROM LOGIN [TITANQC_RW];EXEC sp_addrolemember 'db_owner', 'TITANQC_RW';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQC_RO] FROM LOGIN [TITANQC_RO];EXEC sp_addrolemember 'db_datareader', 'TITANQC_RO';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANSPRINT_RO] FROM LOGIN [TITANSPRINT_RO];EXEC sp_addrolemember 'db_datareader', 'TITANSPRINT_RO';"  
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQCADMIN] FROM LOGIN [TITANQCADMIN];EXEC sp_addrolemember 'db_owner', 'TITANQCADMIN';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\praveen.gowda] FROM LOGIN [AD\praveen.gowda];EXEC sp_addrolemember 'db_owner', 'AD\praveen.gowda';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\jyothi.gowda] FROM LOGIN [AD\jyothi.gowda];EXEC sp_addrolemember 'db_owner', 'AD\jyothi.gowda';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\suhas.handral] FROM LOGIN [AD\suhas.handral];EXEC sp_addrolemember 'db_owner', 'AD\suhas.handral';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\chiranjeevi.s] FROM LOGIN [AD\chiranjeevi.s];EXEC sp_addrolemember 'db_owner', 'AD\chiranjeevi.s';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\vishap.mittal] FROM LOGIN [AD\vishap.mittal];EXEC sp_addrolemember 'db_owner', 'AD\vishap.mittal';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\arindam.choudhury] FROM LOGIN [AD\arindam.choudhury];EXEC sp_addrolemember 'db_owner', 'AD\arindam.choudhury';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\jagadish.mj] FROM LOGIN [AD\jagadish.mj];EXEC sp_addrolemember 'db_owner', 'AD\jagadish.mj';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\manu.talwar] FROM LOGIN [AD\manu.talwar];EXEC sp_addrolemember 'db_owner', 'AD\manu.talwar';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\bharat.panchal] FROM LOGIN [AD\bharat.panchal];EXEC sp_addrolemember 'db_owner', 'AD\bharat.panchal';" 
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\mahantesh.a] FROM LOGIN [AD\mahantesh.a];EXEC sp_addrolemember 'db_owner', 'AD\mahantesh.a';"  
+    
+}
+else {
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $Mastersql
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $DBsql
+}
+
+
+$NewDBUser = $Database -Replace("-", "")
+$Password = "Star@2021"
+$Database = $Database
+
+
+$Mastersql = @"
+USE [master]
+GO
+CREATE LOGIN [$NewDBUser] WITH PASSWORD='$Password', DEFAULT_DATABASE=[master], DEFAULT_LANGUAGE=[us_english], CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+go
+"@
+
+
+$DBsql = @"
+USE [$Database]
+
+GO
+CREATE USER [$NewDBUser] FOR LOGIN [$NewDBUser] WITH DEFAULT_SCHEMA=[dbo]
+EXEC sp_addrolemember 'db_owner', '$NewDBUser'
+go
+"@
+
+
+if(Get-SqlLogin -ServerInstance "$ServerInstance" -Credential $Credentials  -LoginName "$NewDBUser" -ErrorAction SilentlyContinue) {
+    Write-Host "$NewDBUser Exists"
+}
+else {
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $Mastersql
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $DBsql
+} 
+
+
+# Set System Base Path
+$SystemBasepath                = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\"
+$SystemScheduledReportBasePath = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\WS\"
+$VOBasePath                    = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\Attachments\"
+
+
+# Script to change the Basepath, ScheduledReportBasePath, VaRules Status in Database
+$BasePathsql = @"
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$SystemBasepath' WHERE ExtAttrName = 'System.BasePath'
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$SystemScheduledReportBasePath' WHERE ExtAttrName = 'System.ScheduledReportBasePath'
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$VOBasePath' WHERE ExtAttrName = 'VOBasePath'
+GO
+
+UPDATE VaEntityExtAttributes SET ExtAttrValue2 = '$($Database.Replace('-', '').ToLower()).vitalaxis.com' WHERE ExtAttrName='System.DeploymentID'
+GO
+UPDATE Organizations SET IsADEnabled = 0 WHERE IsADEnabled=1
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName ='enable.user_auth_3'
+GO
+
+--UPDATE VaRules SET status=2 WHERE status=1
+--GO
+
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName = 'Enable.APIReportGeneration'
+GO
+"@
+
+
+# Script to Enable Service Broker in Database
+$ServiceBroker = @"
+USE [$Database]
+GO
+ALTER DATABASE [$Database] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+Go
+ALTER DATABASE [$Database] SET ENABLE_BROKER WITH ROLLBACK IMMEDIATE
+Go
+ALTER DATABASE [$Database] SET NEW_BROKER WITH ROLLBACK IMMEDIATE
+GO
+ALTER DATABASE [$Database] SET MULTI_USER WITH ROLLBACK IMMEDIATE
+go
+"@
+
+# Script to Remove Production URLs in Database
+$ProdUrl = @"
+USE [$Database]
+ 
+
+UPDATE VaIntEvent SET EventData = NULL WHERE EVENTDATA IS NOT NULL
+
+UPDATE Integrationmapping SET lookupValue = NULL WHERE (lookupValue LIKE '%http%' OR lookupValue LIKE '%https%' OR lookupValue LIKE '%FTP/SFTP%')
+UPDATE Integrationmapping SET lookupId = NULL WHERE (lookupId LIKE '%http%' OR lookupId LIKE '%https%' OR lookupId LIKE '%FTP/SFTP%')
+
+--UPDATE Integrationmapping SET lookupValue = NULL WHERE LEN(lookupValue) - LEN(REPLACE(LookupValue, '.', '')) = 3  AND lookupValue NOT LIKE '%[^.0-9]%'   -- We need to verify for IPAddress
+--UPDATE Integrationmapping SET lookupId = NULL WHERE LEN(LookupId) - LEN(REPLACE(LookupId, '.', '')) = 3  AND lookupId NOT LIKE '%[^.0-9]%'   -- We need to verify for IPAddress
+
+UPDATE Integrationmapping SET LookupValue = NULL 
+WHERE  (CASE WHEN 
+    (PARSENAME(LookupValue,1) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,1) = '*') AND
+    (PARSENAME(LookupValue,2) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,2) = '*') AND
+    (PARSENAME(LookupValue,3) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,3) = '*') AND
+    (PARSENAME(LookupValue,4) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,4) = '*')
+THEN 1 ELSE 0 END = 1)
+
+
+--UPDATE Integrationmapping SET PropertyValue =    -- We need to verify for Users, Passwords, Agent
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%user%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%orderingphysician%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%PhysicianCode%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%Password%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%ReportFolder_NoAgent%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%agent%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%api%'
+
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%\%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '/%'
+
+UPDATE Hl7IntegrationMaster SET localOutboundFolder = NULL, localOutboundBckFolder = NULL, localSourceFolder = NULL, localProcessingFolder = NULL, localFailedFolder = NULL, localSuccessFolder = NULL, localIgnoredFolder = NULL 
+
+UPDATE Hl7IntegrationMaster  SET groupId = '' WHERE Type = 'VitalCore'
+
+UPDATE W700Properties SET PropertyValue = NULL WHERE (PropertyValue LIKE '%http%' OR PropertyValue LIKE '%https%' OR PropertyValue LIKE '%FTP/SFTP%')
+
+--UPDATE W700Properties SET PropertyValue =    -- We need to verify for IPAddress
+UPDATE W700Properties SET PropertyValue = NULL 
+where  (CASE WHEN 
+    (PARSENAME(PropertyValue,1) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,1) = '*') AND
+    (PARSENAME(PropertyValue,2) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,2) = '*') AND
+    (PARSENAME(PropertyValue,3) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,3) = '*') AND
+    (PARSENAME(PropertyValue,4) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,4) = '*')
+THEN 1 ELSE 0 END = 1)
+
+--UPDATE W700Properties SET PropertyValue =    -- We need to verify for Users, Passwords, Agent
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%password%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%agent%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%API%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%user%'
+
+UPDATE W700Properties SET PropertyValue = NULL WHERE Propertyvalue LIKE '\%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE Propertyvalue LIKE '/%'
+
+
+UPDATE DistributionBatches SET Recipient = NULL, Data = NULL 
+UPDATE HL7Integrationlog SET handlerdata = NULL, handlerdata2 = NULL 
+ 
+
+UPDATE VaEntityExtAttributes SET ExtAttrValue = NULL,ExtAttrValue2 = NULL
+WHERE ExtAttrName IN  ('zebra_archive_folder','zebra_destination_folder',
+'zebra_jar_label_archive_folder','zebra_jar_label_destination_folder',
+'zebra_jar_label_local_temp_folder','zebra_jar_label_template_file',
+'zebra_local_temp_folder','zebra_template_file','network_printer_output_folder',
+'cassette_archive_folder_name','cassette_dest_folder_name','cassette_local_temp_folder_name',
+'leica_cassette_local_temp_folder','leica_slide_local_temp_folder')
+"@
+
+# Script to set to false the enable.user_auth_3 in Database
+$UserAuth = @"
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName='enable.user_auth_3'
+GO
+"@
+
+
+$UserMapping = @"
+USE [$Database]
+GO
+USE [$Database]
+GO
+UPDATE Organizations SET IsADEnabled=0 WHERE IsADEnabled=1
+GO
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName ='enable.user_auth_3'
+GO
+"@
+
+
+Write-Host 'Updating BasePath'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $BasePathsql
+
+Write-Host 'Enabling ServiceBroker'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $ServiceBroker -ErrorAction Continue
+
+Write-Host 'Removing Prod URLs'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $ProdUrl
+
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $UserAuth
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $UserMapping
+
+
+
+
+
+# Script to Truncate data from the list of tables backed up before deleting old database
+$DropScript = @"
+--TRUNCATE TABLE [Hl7IntegrationMaster]
+TRUNCATE TABLE [IntegrationDistConfig]
+--TRUNCATE TABLE [VaEntityExtAttributes]
+DELETE FROM [Hl7IntegrationMaster]
+TRUNCATE TABLE [IntegrationMapping]
+TRUNCATE TABLE AssociatedAccounts
+--TRUNCATE TABLE [L2Lconfigurations]
+DELETE FROM [L2Lconfigurations]
+--TRUNCATE TABLE [VaRules]
+TRUNCATE TABLE VaIntRecipient
+DELETE FROM [VaRules]
+TRUNCATE TABLE [W700Jobs]
+--TRUNCATE TABLE [W700Applications]
+DELETE FROM [W700Applications]
+TRUNCATE TABLE [W700Properties]
+DELETE FROM [ArchivedCases]
+"@
+
+$FK_DisableTrigger = @"
+ALTER TABLE [AssociatedAccounts] DISABLE TRIGGER [AssociatedAccounts_AspNet_SqlCacheNotification_Trigger]
+ALTER TABLE [AssociatedAccounts] DISABLE TRIGGER [OWNERSLABUPDATETRIGGER]
+GO
+"@
+
+$FK_EnableTrigger = @"
+ALTER TABLE [AssociatedAccounts] ENABLE TRIGGER [AssociatedAccounts_AspNet_SqlCacheNotification_Trigger]
+ALTER TABLE [AssociatedAccounts] ENABLE TRIGGER [OWNERSLABUPDATETRIGGER]
+GO
+"@
+
+Write-Host 'Truncating data from the list of tables backed up before deleting old database'
+# Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "$DropScript"
+
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE [IntegrationDistConfig]"
+# [System.Array] $VaEntityExtAttributes = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT EntityId, EntityType, ExtAttrName, ExtAttrValue2 FROM VaEntityExtAttributes" | Select-Object -ExpandProperty EntityId
+# foreach($VaEntityExtAttribute in $VaEntityExtAttributes) {
+# 	Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM VaEntityExtAttributes WHERE EntityId = $VaEntityExtAttribute"
+# }
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "DELETE FROM [Hl7IntegrationMaster]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE [IntegrationMapping]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE AssociatedAccounts"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "DELETE FROM [L2Lconfigurations]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE VaIntRecipient"
+  Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE ArchivedCases"
+[System.Array] $VaRules = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT RuleId, RuleName FROM VaRules" | Select-Object -ExpandProperty RuleId
+foreach($VaRule in $VaRules) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM VaRules WHERE RuleId = $VaRule"
+}
+[System.Array] $W700Jobs = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT JobId, JobName FROM W700Jobs" | Select-Object -ExpandProperty JobId
+foreach($W700Job in $W700Jobs) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Jobs WHERE JobId = $W700Job"
+}
+[System.Array] $W700Applications = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT ApplicationId, Name FROM W700Applications" | Select-Object -ExpandProperty ApplicationId
+foreach($W700Application in $W700Applications) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Applications WHERE ApplicationId = $W700Application"
+}
+[System.Array] $W700Properties = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT PropertyId, OwnerId, OwnerType, PrefixType, PropertyKey FROM W700Properties" | Select-Object -ExpandProperty PropertyId
+foreach($W700Property in $W700Properties) {
+    try {
+        Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Properties WHERE PropertyId = $W700Property" -ErrorAction Stop
+    }
+    catch {
+        if($_ -match 'W700PropertiesINSUPDDELTRIGGER') {
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DISABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;"
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Properties WHERE PropertyId = $W700Property"
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "ENABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;"
+        }
+        else {
+            $_
+        }
+    }
+}
+
+# Execute Generated SQL Script to Insert Backed-up Data 
+Write-Host 'Restoring Backed-up tables'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DISABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;" -ErrorAction SilentlyContinue;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $InsertScriptFile_PK -ErrorAction SilentlyContinue;
+#Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $FK_DisableTrigger;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $InsertScriptFile_FK -ErrorAction SilentlyContinue;
+#Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $FK_EnableTrigger;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "ENABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;" -ErrorAction SilentlyContinue;
+
+
+
+
+# WorklistIDs
+$WorklistIDs = @"
+DECLARE @WorklistIDs TABLE(ID BIGINT) 
+INSERT INTO @WorklistIDs(ID)
+SELECT ID FROM OrganizationCustomWorklist WHERE IsActive=1 AND type='worklist'
+UPDATE OrganizationCustomWorklist SET isactive=0 WHERE ID in (SELECT ID FROM @WorklistIDs)
+EXEC [dbo].[Job_PopulateCasesWorkList]
+UPDATE OrganizationCustomWorklist SET isactive=1 WHERE ID in (SELECT ID FROM @WorklistIDs)
+EXEC [dbo].[Job_PopulateCasesWorkList]
+"@
+
+Write-Host 'Running WorklistIDs Update Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database "$Database" -Credential $Credentials -Query $WorklistIDs
+
+
+
+# Remove VitalAdmin Production URLs
+$RemoveVitalAdminURL = "UPDATE Organizations SET AppURL = NULL WHERE isnull(appurl,'') != ''"
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query $RemoveVitalAdminURL
+
+
+
+
+# GUID Masking
+Write-Host 'Running GUID Masking Script'
+$GuidMaskingScript = Get-Content -Raw -LiteralPath 'D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\01.GUID_Masking_Local.sql'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database "$Database" -Credential $Credentials -Query $GuidMaskingScript
+
+
+
+# Execute SQL Script to Update IPCountry
+Write-Host 'Running IPCountry Update Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -InputFile "D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\IP_Country.sql"
+
+
+# Execute SQL Script for AutoOrgCreation
+Write-Host 'Running AutoOrgCreation Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -InputFile "D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\AutoOrgCreationScript.sql"
+################################Full for reference####################################################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+4
+2
+Udaykumar T
+
+log out
+Dashboard
+TITAN
+QC
+DB_RESTORE
+TITAN-DB-RESTORE
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+DB_RESTORE
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+databaseName
+Choices
+?
+TITAN-QC-LIS
+TITAN-QC-UPM
+TITAN-QC-TLA
+TITAN-QC-QUEST
+TITAN-QC-VPLABS
+TITAN-QC-SAGIS
+TEST-QC-UPM
+TITAN-QC-MYLIS
+TITAN-QC-BCM
+TITAN-QC-DEMO
+TITAN-QC-SOLARIS
+TITAN-QC-BCMTEST
+TITAN-QC-LIS-TEST
+Description
+?
+Plain text
+Preview
+Add Parameter
+
+Throttle builds
+?
+
+Prepare an environment for the run
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.129:8080/project/TITAN/QC/DB_RESTORE/TITAN-DB-RESTORE
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Bind file parameter
+?
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inject environment variables to the build process
+?
+
+Inject passwords to the build as environment variables
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+486
+487
+488
+489
+490
+491
+492
+493
+494
+495
+496
+497
+498
+499
+500
+501
+502
+503
+504
+505
+506
+507
+508
+509
+510
+511
+512
+513
+514
+515
+516
+517
+518
+519
+520
+521
+522
+523
+524
+525
+526
+527
+528
+529
+530
+531
+532
+533
+534
+535
+536
+537
+538
+539
+540
+541
+542
+543
+544
+545
+546
+547
+548
+549
+550
+551
+552
+553
+554
+555
+556
+557
+558
+559
+560
+561
+562
+563
+564
+565
+566
+567
+568
+569
+570
+571
+572
+573
+574
+575
+576
+577
+578
+579
+580
+581
+582
+583
+584
+585
+586
+587
+588
+589
+590
+591
+592
+593
+594
+595
+596
+597
+598
+599
+600
+601
+602
+603
+604
+605
+606
+607
+608
+609
+610
+611
+# Checking if PowerShell modules are installed
+if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+    #Install-Module -Name SqlServer -Force
+    #Install-Module -Name SqlServer -AllowClobber
+    Install-Module -Name SqlServer
+}
+Import-Module SqlServer
+ 
+# Reading Properties File
+#$PropertyMapping = ConvertFrom-StringData (Get-Content "c:\011_Properties.properties" -Raw)
+#$Database = $PropertyMapping."properties.main.databaseName"
+#$BackupFile = $PropertyMapping."properties.main.backupFile"
+#$ServerInstance = $PropertyMapping."properties.main.serverInstance"
+#$DataPath = $PropertyMapping."properties.main.dataPath"
+#$LogPath = $PropertyMapping."properties.main.logPath"
+#$MemoryPath = $PropertyMapping."properties.main.memoryPath"
+ 
+ 
+$Database = ${ENV:databaseName}
+$ServerInstance = "192.168.168.26"
+ 
+$BackupFile = "\\192.168.168.49\LocalDBBackup\DB_RESTORE_AUTOMATION"
+$BackupFileRootPath = $BackupFile
+ 
+$DataPath   = "D:\VitalAxis\DBFILES\DATA"
+$LogPath    = "D:\VitalAxis\DBFILES\LOG"
+$MemoryPath = "D:\VitalAxis\DBFILES\FILESTREAM"
+ 
+ 
+#$Database = "Test"
+#$BackupFile = "\\VMOPSDB19\LocalDBBackup\UPM\VAUPM_Local_20220104042040.BAK"
+ 
+$BackupFileRootPath = $BackupFileRootPath + "\" + $Database.Substring($Database.LastIndexOf('-') + 1)
+$BackupFile = (Get-ChildItem "$BackupFileRootPath" | SELECT FullName, LastWriteTime | Sort-Object -Descending -Property 'LastWriteTime')[0].FullName
+ 
+ 
+# Get Logical File Names
+$DataFileLogicalName1 = ""
+$DataFileLogicalName2 = ""
+$LogFileLogicalName = ""
+$MemoryFileLogicalName = ""
+ 
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+ 
+ 
+ 
+ 
+Write-Host ''
+Write-Host "Database = $Database"
+ 
+ 
+Write-Host 'Saving Back-up of selected tables'
+# Backup Tables (Schema and Data)
+[System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMO') | Out-Null
+ 
+# Array of Tables
+$Tables = @('Hl7IntegrationMaster','IntegrationDistConfig','IntegrationMapping','L2LConfigurations','VaRules','W700Applications','W700Jobs','W700Properties','ArchivedCases')
+ 
+# Output File
+$InsertScriptFile_PK = ".\$($Database)_PK.sql"
+$InsertScriptFile_FK = ".\$($Database)_FK.sql"
+ 
+while($true) {
+    $InsertScriptFileExists = $false
+    try { $InsertScriptFileExists = Test-Path -Path $InsertScriptFile_PK -ErrorAction Stop }
+    catch { $InsertScriptFileExists = $true }
+    if(-not $InsertScriptFileExists) { break }
+ 
+    try { Remove-Item -Path $InsertScriptFile_PK -Force -ErrorAction Stop }
+    catch {}
+}
+ 
+# Target Database Server
+$Server = New-Object ('Microsoft.SqlServer.Management.Smo.Server') "$ServerInstance"
+ 
+# Target Database
+$DatabaseObject = $Server.databases["$Database"]
+ 
+# New Scripter Object
+$TableScripter = New-Object ('Microsoft.SqlServer.Management.Smo.Scripter')($Server)
+ 
+# Define options for the Scripter
+$TableScripter.Options.ScriptData = $True
+$TableScripter.Options.ScriptSchema = $False
+$TableScripter.Options.AppendToFile = $True
+$TableScripter.Options.AllowSystemObjects = $False
+$TableScripter.Options.ClusteredIndexes = $True
+$TableScripter.Options.Indexes = $True
+$TableScripter.Options.ToFileOnly = $True
+$TableScripter.Options.Filename = $InsertScriptFile_PK
+ 
+# Build out the Script for each Table in the PK Array
+foreach ($Table in $Tables)
+{
+    $TableScripter.enumscript(@($DatabaseObject.tables[$Table]))
+}
+ 
+ 
+# Backup ExtAttrValue
+$ExtAttrValue = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT * from VaEntityExtAttributes WHERE ExtAttrName LIKE '%External.AppAuthenticationConfig%'" | Select-Object -ExpandProperty ExtAttrValue
+$ExtAttrValue2 = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT * from VaEntityExtAttributes WHERE ExtAttrName LIKE '%External.AppAuthenticationConfig%'" | Select-Object -ExpandProperty ExtAttrValue2
+ 
+ 
+ 
+# Save Backup of Current Database
+#Backup-SqlDatabase -ServerInstance "$ServerInstance"  -Database "$Database" -BackupFile  "\\SERVER\bckpath\DBname-$($Date).bak"
+Backup-SqlDatabase -ServerInstance "$ServerInstance"  -Database "$Database" -BackupFile  "\\$ServerInstance\d$\SQL-DB-BACKUP\$Database.bak" -Credential $Credentials
+ 
+# Drop Current Database
+if(Get-SqlDatabase -ServerInstance "$ServerInstance" -Name "$Database" -Credential $Credentials -ErrorAction SilentlyContinue) {
+    #Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query "DROP DATABASE [$Database]"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query "DECLARE @kill varchar(8000) = ''; SELECT @kill = @kill + 'kill ' + CONVERT(varchar(5), session_id) + ';' FROM sys.dm_exec_sessions WHERE database_id  = db_id('$Database') AND is_user_process = 1; EXEC(@kill);  "
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials -Query " DROP DATABASE [$Database];"
+    Write-Host "Dropping Database $Database"
+}
+#Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials - $kill
+ 
+ 
+# Data File, Log File, Memory File Names
+$DataTable = Invoke-Sqlcmd -ServerInstance $ServerInstance -Username "$Username" -Password "$Password" "restore filelistonly from disk='$BackupFile'"
+ 
+foreach ($r in $DataTable)
+{
+    if ($r.Type -eq "L")
+    {
+        $LogFileLogicalName = $r.LogicalName
+    }
+    elseif ($r.Type -eq "D")
+    {
+        if($DataFileLogicalName1 -eq "") {
+            $DataFileLogicalName1 = $r.LogicalName
+        }
+        else {
+            $DataFileLogicalName2 = $r.LogicalName
+        }
+    }
+    elseif ($r.Type -eq "S") {
+        $MemoryFileLogicalName = $r.LogicalName
+    }
+}
+ 
+$DataFile = "$DataPath\$Database.mdf"
+$DataFile2 = "$DataPath\$Database" + "_2.mdf"
+$LogFile = "$LogPath\$Database.ldf"
+$MemoryFile = "$MemoryPath\$Database" + "_InMem"
+ 
+#$MemoryFile = "$MemoryPath\$MemoryFileLogicalName"
+ 
+#Write-Host "--------------------"
+#Write-Host $DataFileLogicalName1
+#Write-Host $DataFileLogicalName2
+#Write-Host $LogFileLogicalName
+#Write-Host $MemoryFileLogicalName
+#Write-Host "======================="
+ 
+ 
+# Restore Database
+$RelocateData = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($DataFileLogicalName1, $DataFile)
+$RelocateData2 = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($DataFileLogicalName2, $DataFile2)
+$RelocateLog = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($LogFileLogicalName, $LogFile)
+if($MemoryFileLogicalName.length -gt 0) {
+    # Restore data, log, memory
+    $RelocateMemory = New-Object Microsoft.SqlServer.Management.Smo.RelocateFile($MemoryFileLogicalName, $MemoryFile)
+ 
+    if($DataFileLogicalName2.length -gt 0) {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateData2,$RelocateLog, $RelocateMemory)
+    }
+    else {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateLog, $RelocateMemory)
+    }
+}
+else {
+    # Restore data, log
+    if($DataFileLogicalName2.length -gt 0) {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateData2,$RelocateLog)
+    }
+    else {
+        Restore-SqlDatabase -ServerInstance "$ServerInstance" -Database $Database -Credential $Credentials -BackupFile $BackupFile -RelocateFile @($RelocateData,$RelocateLog)
+    }
+}
+ 
+Write-Host "Database $Database Restored Successfully"
+Write-Host ""
+ 
+ 
+ 
+ 
+Write-Host 'Saving Back-up of selected tables (Foreign_Key Tables)'
+# Backup Tables (Schema and Data)
+[System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMO') | Out-Null
+ 
+# Array of Tables
+$TablesFK = @('AssociatedAccounts','VaIntRecipient')
+ 
+# Output File
+$InsertScriptFile_FK = ".\$($Database)_FK.sql"
+ 
+while($true) {
+    $InsertScriptFileExists = $false
+    try { $InsertScriptFileExists = Test-Path -Path $InsertScriptFile_FK -ErrorAction Stop }
+    catch { $InsertScriptFileExists = $true }
+    if(-not $InsertScriptFileExists) { break }
+ 
+    try { Remove-Item -Path $InsertScriptFile_FK -Force -ErrorAction Stop }
+    catch {}
+}
+ 
+# Target Database Server
+$Server = New-Object ('Microsoft.SqlServer.Management.Smo.Server') "$ServerInstance"
+ 
+# Target Database
+$DatabaseObject = $Server.databases["$Database"]
+ 
+# New Scripter Object
+$TableScripter = New-Object ('Microsoft.SqlServer.Management.Smo.Scripter')($Server)
+ 
+# Define options for the Scripter
+$TableScripter.Options.ScriptData = $True
+$TableScripter.Options.ScriptSchema = $False
+$TableScripter.Options.AppendToFile = $True
+$TableScripter.Options.AllowSystemObjects = $False
+$TableScripter.Options.ClusteredIndexes = $True
+$TableScripter.Options.Indexes = $True
+$TableScripter.Options.ToFileOnly = $True
+$TableScripter.Options.Filename = $InsertScriptFile_FK
+ 
+# Build out the Script for each Table in the FK Array
+foreach ($Table in $TablesFK)
+{
+    $TableScripter.enumscript(@($DatabaseObject.tables[$Table]))
+}
+ 
+ 
+ 
+# Restore ExtAttrValue
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "UPDATE VaEntityExtAttributes SET ExtAttrValue = '$ExtAttrValue' WHERE ExtAttrName = 'External.AppAuthenticationConfig'"
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "UPDATE VaEntityExtAttributes SET ExtAttrValue2 = '$ExtAttrValue2' WHERE ExtAttrName = 'External.AppAuthenticationConfig'"
+ 
+ 
+ 
+ 
+# Add SQL Users
+$NewDBUser = ($Database -Replace("-", "")) +'_RO'
+$Password = "Va@2021"
+$Database = $Database
+ 
+ 
+$Mastersql = @"
+USE [master]
+GO
+CREATE LOGIN [$NewDBUser] WITH PASSWORD='$Password', DEFAULT_DATABASE=[master], DEFAULT_LANGUAGE=[us_english], CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+go
+"@
+ 
+ 
+$DBsql = @"
+USE [$Database]
+ 
+GO
+CREATE USER [$NewDBUser] FOR LOGIN [$NewDBUser] WITH DEFAULT_SCHEMA=[dbo]
+EXEC sp_addrolemember 'db_datareader', '$NewDBUser'
+go
+"@
+ 
+ 
+if(Get-SqlLogin -ServerInstance "$ServerInstance" -Credential $Credentials  -LoginName "$NewDBUser" -ErrorAction SilentlyContinue) {
+    Write-Host "$NewDBUser Exists"
+    
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [$($NewDBUser.Split('_')[0])] FROM LOGIN [$($NewDBUser.Split('_')[0])];EXEC sp_addrolemember 'db_owner', '$($NewDBUser.Split('_')[0])';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [$NewDBUser] FROM LOGIN [$NewDBUser];EXEC sp_addrolemember 'db_datareader', '$NewDBUser';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQC_RW] FROM LOGIN [TITANQC_RW];EXEC sp_addrolemember 'db_owner', 'TITANQC_RW';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQC_RO] FROM LOGIN [TITANQC_RO];EXEC sp_addrolemember 'db_datareader', 'TITANQC_RO';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANSPRINT_RO] FROM LOGIN [TITANSPRINT_RO];EXEC sp_addrolemember 'db_datareader', 'TITANSPRINT_RO';"  
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [TITANQCADMIN] FROM LOGIN [TITANQCADMIN];EXEC sp_addrolemember 'db_owner', 'TITANQCADMIN';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\praveen.gowda] FROM LOGIN [AD\praveen.gowda];EXEC sp_addrolemember 'db_owner', 'AD\praveen.gowda';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\jyothi.gowda] FROM LOGIN [AD\jyothi.gowda];EXEC sp_addrolemember 'db_owner', 'AD\jyothi.gowda';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\suhas.handral] FROM LOGIN [AD\suhas.handral];EXEC sp_addrolemember 'db_owner', 'AD\suhas.handral';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\chiranjeevi.s] FROM LOGIN [AD\chiranjeevi.s];EXEC sp_addrolemember 'db_owner', 'AD\chiranjeevi.s';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\vishap.mittal] FROM LOGIN [AD\vishap.mittal];EXEC sp_addrolemember 'db_owner', 'AD\vishap.mittal';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\arindam.choudhury] FROM LOGIN [AD\arindam.choudhury];EXEC sp_addrolemember 'db_owner', 'AD\arindam.choudhury';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\jagadish.mj] FROM LOGIN [AD\jagadish.mj];EXEC sp_addrolemember 'db_owner', 'AD\jagadish.mj';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\manu.talwar] FROM LOGIN [AD\manu.talwar];EXEC sp_addrolemember 'db_owner', 'AD\manu.talwar';"
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\bharat.panchal] FROM LOGIN [AD\bharat.panchal];EXEC sp_addrolemember 'db_owner', 'AD\bharat.panchal';" 
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "CREATE USER [AD\mahantesh.a] FROM LOGIN [AD\mahantesh.a];EXEC sp_addrolemember 'db_owner', 'AD\mahantesh.a';"  
+    
+}
+else {
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $Mastersql
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $DBsql
+}
+ 
+ 
+$NewDBUser = $Database -Replace("-", "")
+$Password = "Star@2021"
+$Database = $Database
+ 
+ 
+$Mastersql = @"
+USE [master]
+GO
+CREATE LOGIN [$NewDBUser] WITH PASSWORD='$Password', DEFAULT_DATABASE=[master], DEFAULT_LANGUAGE=[us_english], CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+go
+"@
+ 
+ 
+$DBsql = @"
+USE [$Database]
+ 
+GO
+CREATE USER [$NewDBUser] FOR LOGIN [$NewDBUser] WITH DEFAULT_SCHEMA=[dbo]
+EXEC sp_addrolemember 'db_owner', '$NewDBUser'
+go
+"@
+ 
+ 
+if(Get-SqlLogin -ServerInstance "$ServerInstance" -Credential $Credentials  -LoginName "$NewDBUser" -ErrorAction SilentlyContinue) {
+    Write-Host "$NewDBUser Exists"
+}
+else {
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $Mastersql
+    Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $DBsql
+} 
+ 
+ 
+# Set System Base Path
+$SystemBasepath                = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\"
+$SystemScheduledReportBasePath = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\WS\"
+$VOBasePath                    = "\\192.168.168.68\Website-Files\VitalAxis-IIS\$Database\Attachments\"
+ 
+ 
+# Script to change the Basepath, ScheduledReportBasePath, VaRules Status in Database
+$BasePathsql = @"
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$SystemBasepath' WHERE ExtAttrName = 'System.BasePath'
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$SystemScheduledReportBasePath' WHERE ExtAttrName = 'System.ScheduledReportBasePath'
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='$VOBasePath' WHERE ExtAttrName = 'VOBasePath'
+GO
+ 
+UPDATE VaEntityExtAttributes SET ExtAttrValue2 = '$($Database.Replace('-', '').ToLower()).vitalaxis.com' WHERE ExtAttrName='System.DeploymentID'
+GO
+UPDATE Organizations SET IsADEnabled = 0 WHERE IsADEnabled=1
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName ='enable.user_auth_3'
+GO
+ 
+--UPDATE VaRules SET status=2 WHERE status=1
+--GO
+ 
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName = 'Enable.APIReportGeneration'
+GO
+"@
+ 
+ 
+# Script to Enable Service Broker in Database
+$ServiceBroker = @"
+USE [$Database]
+GO
+ALTER DATABASE [$Database] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+Go
+ALTER DATABASE [$Database] SET ENABLE_BROKER WITH ROLLBACK IMMEDIATE
+Go
+ALTER DATABASE [$Database] SET NEW_BROKER WITH ROLLBACK IMMEDIATE
+GO
+ALTER DATABASE [$Database] SET MULTI_USER WITH ROLLBACK IMMEDIATE
+go
+"@
+ 
+# Script to Remove Production URLs in Database
+$ProdUrl = @"
+USE [$Database]
+ 
+ 
+UPDATE VaIntEvent SET EventData = NULL WHERE EVENTDATA IS NOT NULL
+ 
+UPDATE Integrationmapping SET lookupValue = NULL WHERE (lookupValue LIKE '%http%' OR lookupValue LIKE '%https%' OR lookupValue LIKE '%FTP/SFTP%')
+UPDATE Integrationmapping SET lookupId = NULL WHERE (lookupId LIKE '%http%' OR lookupId LIKE '%https%' OR lookupId LIKE '%FTP/SFTP%')
+ 
+--UPDATE Integrationmapping SET lookupValue = NULL WHERE LEN(lookupValue) - LEN(REPLACE(LookupValue, '.', '')) = 3  AND lookupValue NOT LIKE '%[^.0-9]%'   -- We need to verify for IPAddress
+--UPDATE Integrationmapping SET lookupId = NULL WHERE LEN(LookupId) - LEN(REPLACE(LookupId, '.', '')) = 3  AND lookupId NOT LIKE '%[^.0-9]%'   -- We need to verify for IPAddress
+ 
+UPDATE Integrationmapping SET LookupValue = NULL 
+WHERE  (CASE WHEN 
+    (PARSENAME(LookupValue,1) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,1) = '*') AND
+    (PARSENAME(LookupValue,2) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,2) = '*') AND
+    (PARSENAME(LookupValue,3) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,3) = '*') AND
+    (PARSENAME(LookupValue,4) NOT LIKE '%[^0-9]%' OR PARSENAME(LookupValue,4) = '*')
+THEN 1 ELSE 0 END = 1)
+ 
+ 
+--UPDATE Integrationmapping SET PropertyValue =    -- We need to verify for Users, Passwords, Agent
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%user%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%orderingphysician%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%PhysicianCode%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%Password%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%ReportFolder_NoAgent%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%agent%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%api%'
+ 
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '%\%'
+UPDATE Integrationmapping SET LookupValue = NULL WHERE lookupType like '/%'
+ 
+UPDATE Hl7IntegrationMaster SET localOutboundFolder = NULL, localOutboundBckFolder = NULL, localSourceFolder = NULL, localProcessingFolder = NULL, localFailedFolder = NULL, localSuccessFolder = NULL, localIgnoredFolder = NULL 
+ 
+UPDATE Hl7IntegrationMaster  SET groupId = '' WHERE Type = 'VitalCore'
+ 
+UPDATE W700Properties SET PropertyValue = NULL WHERE (PropertyValue LIKE '%http%' OR PropertyValue LIKE '%https%' OR PropertyValue LIKE '%FTP/SFTP%')
+ 
+--UPDATE W700Properties SET PropertyValue =    -- We need to verify for IPAddress
+UPDATE W700Properties SET PropertyValue = NULL 
+where  (CASE WHEN 
+    (PARSENAME(PropertyValue,1) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,1) = '*') AND
+    (PARSENAME(PropertyValue,2) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,2) = '*') AND
+    (PARSENAME(PropertyValue,3) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,3) = '*') AND
+    (PARSENAME(PropertyValue,4) NOT LIKE '%[^0-9]%' OR PARSENAME(PropertyValue,4) = '*')
+THEN 1 ELSE 0 END = 1)
+ 
+--UPDATE W700Properties SET PropertyValue =    -- We need to verify for Users, Passwords, Agent
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%password%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%agent%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%API%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE PropertyKey LIKE '%user%'
+ 
+UPDATE W700Properties SET PropertyValue = NULL WHERE Propertyvalue LIKE '\%'
+UPDATE W700Properties SET PropertyValue = NULL WHERE Propertyvalue LIKE '/%'
+ 
+ 
+UPDATE DistributionBatches SET Recipient = NULL, Data = NULL 
+UPDATE HL7Integrationlog SET handlerdata = NULL, handlerdata2 = NULL 
+ 
+ 
+UPDATE VaEntityExtAttributes SET ExtAttrValue = NULL,ExtAttrValue2 = NULL
+WHERE ExtAttrName IN  ('zebra_archive_folder','zebra_destination_folder',
+'zebra_jar_label_archive_folder','zebra_jar_label_destination_folder',
+'zebra_jar_label_local_temp_folder','zebra_jar_label_template_file',
+'zebra_local_temp_folder','zebra_template_file','network_printer_output_folder',
+'cassette_archive_folder_name','cassette_dest_folder_name','cassette_local_temp_folder_name',
+'leica_cassette_local_temp_folder','leica_slide_local_temp_folder')
+"@
+ 
+# Script to set to false the enable.user_auth_3 in Database
+$UserAuth = @"
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName='enable.user_auth_3'
+GO
+"@
+ 
+ 
+$UserMapping = @"
+USE [$Database]
+GO
+USE [$Database]
+GO
+UPDATE Organizations SET IsADEnabled=0 WHERE IsADEnabled=1
+GO
+USE [$Database]
+GO
+UPDATE VaEntityExtAttributes SET ExtAttrValue='false' WHERE ExtAttrName ='enable.user_auth_3'
+GO
+"@
+ 
+ 
+Write-Host 'Updating BasePath'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $BasePathsql
+ 
+Write-Host 'Enabling ServiceBroker'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $ServiceBroker -ErrorAction Continue
+ 
+Write-Host 'Removing Prod URLs'
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $ProdUrl
+ 
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $UserAuth
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Credential $Credentials  $UserMapping
+ 
+ 
+ 
+ 
+ 
+# Script to Truncate data from the list of tables backed up before deleting old database
+$DropScript = @"
+--TRUNCATE TABLE [Hl7IntegrationMaster]
+TRUNCATE TABLE [IntegrationDistConfig]
+--TRUNCATE TABLE [VaEntityExtAttributes]
+DELETE FROM [Hl7IntegrationMaster]
+TRUNCATE TABLE [IntegrationMapping]
+TRUNCATE TABLE AssociatedAccounts
+--TRUNCATE TABLE [L2Lconfigurations]
+DELETE FROM [L2Lconfigurations]
+--TRUNCATE TABLE [VaRules]
+TRUNCATE TABLE VaIntRecipient
+DELETE FROM [VaRules]
+TRUNCATE TABLE [W700Jobs]
+--TRUNCATE TABLE [W700Applications]
+DELETE FROM [W700Applications]
+TRUNCATE TABLE [W700Properties]
+DELETE FROM [ArchivedCases]
+"@
+ 
+$FK_DisableTrigger = @"
+ALTER TABLE [AssociatedAccounts] DISABLE TRIGGER [AssociatedAccounts_AspNet_SqlCacheNotification_Trigger]
+ALTER TABLE [AssociatedAccounts] DISABLE TRIGGER [OWNERSLABUPDATETRIGGER]
+GO
+"@
+ 
+$FK_EnableTrigger = @"
+ALTER TABLE [AssociatedAccounts] ENABLE TRIGGER [AssociatedAccounts_AspNet_SqlCacheNotification_Trigger]
+ALTER TABLE [AssociatedAccounts] ENABLE TRIGGER [OWNERSLABUPDATETRIGGER]
+GO
+"@
+ 
+Write-Host 'Truncating data from the list of tables backed up before deleting old database'
+# Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "$DropScript"
+ 
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE [IntegrationDistConfig]"
+# [System.Array] $VaEntityExtAttributes = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT EntityId, EntityType, ExtAttrName, ExtAttrValue2 FROM VaEntityExtAttributes" | Select-Object -ExpandProperty EntityId
+# foreach($VaEntityExtAttribute in $VaEntityExtAttributes) {
+#   Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM VaEntityExtAttributes WHERE EntityId = $VaEntityExtAttribute"
+# }
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "DELETE FROM [Hl7IntegrationMaster]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE [IntegrationMapping]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE AssociatedAccounts"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "DELETE FROM [L2Lconfigurations]"
+Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE VaIntRecipient"
+  Invoke-Sqlcmd -ServerInstance "$ServerInstance" -Database "$Database" -Credential $Credentials -Query "TRUNCATE TABLE ArchivedCases"
+[System.Array] $VaRules = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT RuleId, RuleName FROM VaRules" | Select-Object -ExpandProperty RuleId
+foreach($VaRule in $VaRules) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM VaRules WHERE RuleId = $VaRule"
+}
+[System.Array] $W700Jobs = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT JobId, JobName FROM W700Jobs" | Select-Object -ExpandProperty JobId
+foreach($W700Job in $W700Jobs) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Jobs WHERE JobId = $W700Job"
+}
+[System.Array] $W700Applications = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT ApplicationId, Name FROM W700Applications" | Select-Object -ExpandProperty ApplicationId
+foreach($W700Application in $W700Applications) {
+    Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Applications WHERE ApplicationId = $W700Application"
+}
+[System.Array] $W700Properties = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "SELECT PropertyId, OwnerId, OwnerType, PrefixType, PropertyKey FROM W700Properties" | Select-Object -ExpandProperty PropertyId
+foreach($W700Property in $W700Properties) {
+    try {
+        Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Properties WHERE PropertyId = $W700Property" -ErrorAction Stop
+    }
+    catch {
+        if($_ -match 'W700PropertiesINSUPDDELTRIGGER') {
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DISABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;"
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DELETE FROM W700Properties WHERE PropertyId = $W700Property"
+            Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "ENABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;"
+        }
+        else {
+            $_
+        }
+    }
+}
+ 
+# Execute Generated SQL Script to Insert Backed-up Data 
+Write-Host 'Restoring Backed-up tables'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "DISABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;" -ErrorAction SilentlyContinue;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $InsertScriptFile_PK -ErrorAction SilentlyContinue;
+#Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $FK_DisableTrigger;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $InsertScriptFile_FK -ErrorAction SilentlyContinue;
+#Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -DisableVariables -InputFile $FK_EnableTrigger;
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query "ENABLE TRIGGER W700PropertiesINSUPDDELTRIGGER ON W700Properties;" -ErrorAction SilentlyContinue;
+ 
+ 
+ 
+ 
+# WorklistIDs
+$WorklistIDs = @"
+DECLARE @WorklistIDs TABLE(ID BIGINT) 
+INSERT INTO @WorklistIDs(ID)
+SELECT ID FROM OrganizationCustomWorklist WHERE IsActive=1 AND type='worklist'
+UPDATE OrganizationCustomWorklist SET isactive=0 WHERE ID in (SELECT ID FROM @WorklistIDs)
+EXEC [dbo].[Job_PopulateCasesWorkList]
+UPDATE OrganizationCustomWorklist SET isactive=1 WHERE ID in (SELECT ID FROM @WorklistIDs)
+EXEC [dbo].[Job_PopulateCasesWorkList]
+"@
+ 
+Write-Host 'Running WorklistIDs Update Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database "$Database" -Credential $Credentials -Query $WorklistIDs
+ 
+ 
+ 
+# Remove VitalAdmin Production URLs
+$RemoveVitalAdminURL = "UPDATE Organizations SET AppURL = NULL WHERE isnull(appurl,'') != ''"
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -Query $RemoveVitalAdminURL
+ 
+ 
+ 
+ 
+# GUID Masking
+Write-Host 'Running GUID Masking Script'
+$GuidMaskingScript = Get-Content -Raw -LiteralPath 'D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\01.GUID_Masking_Local.sql'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database "$Database" -Credential $Credentials -Query $GuidMaskingScript
+ 
+ 
+ 
+# Execute SQL Script to Update IPCountry
+Write-Host 'Running IPCountry Update Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -InputFile "D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\IP_Country.sql"
+ 
+ 
+# Execute SQL Script for AutoOrgCreation
+Write-Host 'Running AutoOrgCreation Script'
+Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Credential $Credentials -InputFile "D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\AutoOrgCreationScript.sql"
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1

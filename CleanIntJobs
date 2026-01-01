@@ -1,0 +1,44 @@
+# Days older than
+$OlderThan = 2
+
+# Path to the root folder
+$Path = "D:\VitalAxis\INT_SERVICE\INT-SERVICE-LOGS"
+
+[Array] $Servers = $ENV:Server -split ','
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+foreach($Server in $Servers){
+    Invoke-Command -ComputerName $Server -ScriptBlock {
+        $FreeSpaceBeforeCleanup = (Get-PSDrive D).Free
+        $FreeSpaceBeforeCleanup = [Math]::round($FreeSpaceBeforeCleanup/1Gb, 3)
+
+        Write-Host "Filtering files older than $using:OlderThan days..."
+        [System.Array] $Files = Get-ChildItem -Path $using:Path -File -Recurse | Where LastWriteTime -lt (Get-Date).AddDays(-$using:OlderThan)
+        
+        if($Files.Count -gt 0){
+            foreach($File in $Files){
+                if(Test-Path -Path $File.FullName){
+                    Write-Host "Deleting $($File.FullName)"
+                    Remove-Item -Path $File.FullName -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            $FreeSpaceAfterCleanup = (Get-PSDrive D).Free
+            $FreeSpaceAfterCleanup = [Math]::round($FreeSpaceAfterCleanup/1Gb, 3)
+            
+            Write-Host ''
+            Write-Host "Server = $using:Server"
+            Write-Host "Free Space Before Cleanup = $FreeSpaceBeforeCleanup GB"
+            Write-Host "Free Space After Cleanup = $FreeSpaceAfterCleanup GB"
+        }
+        else{
+            Write-Host "No files match the filter."
+        }
+    } -Credential $Credentials
+}
+:

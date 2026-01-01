@@ -1,0 +1,403 @@
+[Array] $Databases = $ENV:Database -split ','
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+foreach($Database in $Databases){
+    "Database = $Database"
+    Invoke-Sqlcmd -ServerInstance $ENV:Server -Database $Database -Credential $Credentials -InputFile 'D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\IP_Country.sql' -TrustServerCertificate
+}
+
+
+
+##################Full fo rreference#####################################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+5
+3
+Udaykumar T
+
+log out
+Dashboard
+ORION
+Execute-SQLScripts
+Add_IP_Country
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Execute Add_IP_Country SQL Script in selected databases
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+Server
+Choices
+?
+192.168.168.26
+192.168.168.27
+192.168.168.94
+Description
+?
+Database Server
+Plain text
+Preview
+Active Choices Reactive Parameter
+?
+
+Name
+DeploymentSet
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Server.equals('192.168.168.26')){
+    return[
+        'ALL',
+        'TITAN-DEV',
+        'TITAN-SPRINT',
+        'TITAN-QC',
+        'VITAL-DEV',
+        'VITAL-QC'
+    ]
+}
+else if(Server.equals('192.168.168.27')){
+    return[
+        'ALL',
+        'INT-DEV',
+        'INT-HUB',
+        'INT-QC',
+        'JUPITER-DEV',
+        'JUPITER-QC'
+    ]
+}
+else if(Server.equals('192.168.168.94')){
+    return[
+        'ALL',
+        'P4-DEV',
+        'P4-SPRINT',
+        'P4-QC',
+        'REPORTS-DEV',
+        'REPORTS-QC',
+        'SUPPORT-QC'
+    ]
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+Referenced parameters
+?
+Server
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Parameter
+?
+
+Name
+Database
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Server.equals('192.168.168.26')){
+    if(DeploymentSet.equals('ALL')){
+        return ['00_BCM_Training', 'BRIGHT-STORM', 'CSM-QC-UPM:selected', 'FRESHERS-TRAINING', 'ORION-SPRINT-LIS', 'ORION-TEST-LIS', 'P4PORTAL-DEV-LIS:selected', 'P4PORTAL-DEV-LIS_OLD:selected', 'P4-SPRINT-THX-CustomList:selected', 'SUPPORT-QC-VPLABS:selected', 'TEST-QC-LIS:selected', 'TEST-QC-UPM:selected', 'TEST-QC-VPLABS:selected', 'TITAN-BETA-TLA:selected', 'TITAN-DEV-BCM:selected', 'TITAN-DEV-BCMTEST:selected', 'TITAN-DEV-DEMO:selected', 'TITAN-DEV-IMP:selected', 'TITAN-DEV-LABS:selected', 'TITAN-DEV-LIS:selected', 'TITAN-DEV-LIS-REPORTS:selected', 'TITAN-DEV-MIRACA:selected', 'TITAN-DEV-MYLIS:selected', 'TITAN-DEV-PLUS:selected', 'TITAN-DEV-PROGRAMS:selected', 'TITAN-DEV-QUEST:selected', 'TITAN-DEV-SAGIS:selected', 'TITAN-DEV-SAGIS-Hemonc:selected', 'TITAN-DEV-TLA:selected', 'TITAN-DEV-UPM:selected', 'TITAN-DEV-VAARCHIVES', 'TITAN-DEV-VACONFIG:selected', 'TITAN-DEV-VALIVEARCHIVES', 'TITAN-DEV-VAPULSE:selected', 'TITAN-DEV-VPLABS:selected', 'TITAN-DX-LABADMIN:selected', 'TITAN-LIVE-BCM:selected', 'TITAN-LIVE-BCMTEST:selected', 'TITAN-LIVE-THX:selected', 'TITAN-QC-BCM:selected', 'TITAN-QC-BCMTEST:selected', 'TITAN-QC-DEMO:selected', 'TITAN-QC-IMP:selected', 'TITAN-QC-LABS:selected', 'TITAN-QC-LIS:selected', 'TITAN-QC-LIS-REPORTS:selected', 'TITAN-QC-LIS-TEST:selected', 'TITAN-QC-MIRACA:selected', 'TITAN-QC-MYLIS:selected', 'TITAN-QC-PLUS:selected', 'TITAN-QC-PULSE:selected', 'TITAN-QC-QUEST:selected', 'TITAN-QC-SAGIS:selected', 'TITAN-QC-SOLARIS:selected', 'TITAN-QC-TLA:selected', 'TITAN-QC-UPM:selected', 'TITAN-QC-VACONFIG', 'TITAN-QC-VPLABS:selected', 'TITAN-SAGIS-VAARCHIVES', 'TITAN-SAGIS-VALIVEARCHIVES', 'TITAN-SPRINT-BCM:selected', 'TITAN-SPRINT-C1LIS:selected', 'TITAN-SPRINT-C1LIS-OLD:selected', 'TITAN-SPRINT-DEMO:selected', 'TITAN-SPRINT-IMP:selected', 'TITAN-SPRINT-INTEGRATION-DATA:selected', 'TITAN-SPRINT-LIS:selected', 'TITAN-SPRINT-LIS-FUSIONAUTH:selected', 'TITAN-SPRINT-LIS-JULY24TEST:selected', 'TITAN-SPRINT-LISMDM:selected', 'TITAN-SPRINT-MYLIS:selected', 'TITAN-SPRINT-PROGRAMS:selected', 'TITAN-SPRINT-QUEST:selected', 'TITAN-SPRINT-SAGIS:selected', 'TITAN-SPRINT-SAGIS-HemOnc:selected', 'TITAN-SPRINT-SOLARIS:selected', 'TITAN-SPRINT-TESTBCM:selected', 'TITAN-SPRINT-TEST-LIS:selected', 'TITAN-SPRINT-THX:selected', 'TITAN-SPRINT-THXVAR:selected', 'TITAN-SPRINT-TLA:selected', 'TITAN-SPRINT-UPM:selected', 'TITAN-SPRINT-VAARCHIVES', 'TITAN-SPRINT-VACONFIG', 'TITAN-SPRINT-VALIVEARCHIVES', 'TITAN-SPRINT-VAPULSE:selected', 'TITAN-SPRINT-VPLABS:selected', 'TITAN-SPRINT-VPLABS_OLD:selected', 'TITAN-TEMP-THXVAR:selected', 'TITAN-TEST-LIS:selected', 'TITAN-TEST-UPM:selected', 'VALive-UPM-Scramble', 'VAPNX_Local', 'VITALACCESS', 'VITAL-DEV-LISVO:selected', 'VITAL-DEV-SONARQUBE:selected', 'VITAL-DEV-TLAVO:selected', 'VITAL-DEV-VPLABSVO:selected', 'VITAL-QC-BCM:selected', 'VITAL-QC-DESK:selected', 'VITAL-QC-LIS:selected', 'VITAL-QC-QUEST:selected', 'VITAL-QC-SAGIS:selected', 'VITAL-QC-THX:selected', 'VITAL-QC-THXVAR:selected', 'VITAL-QC-TLA:selected', 'VITAL-QC-UPM:selected', 'VITAL-QC-VACONFIG:selected', 'VITAL-QC-VAPULSE:selected', 'VITAL-QC-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('TITAN-DEV')){
+        return ['TITAN-DEV-BCM:selected', 'TITAN-DEV-BCMTEST:selected', 'TITAN-DEV-DEMO:selected', 'TITAN-DEV-IMP:selected', 'TITAN-DEV-LABS:selected', 'TITAN-DEV-LIS:selected', 'TITAN-DEV-LIS-REPORTS:selected', 'TITAN-DEV-MIRACA:selected', 'TITAN-DEV-MYLIS:selected', 'TITAN-DEV-PLUS:selected', 'TITAN-DEV-PROGRAMS:selected', 'TITAN-DEV-QUEST:selected', 'TITAN-DEV-SAGIS:selected', 'TITAN-DEV-SAGIS-Hemonc:selected', 'TITAN-DEV-TLA:selected', 'TITAN-DEV-UPM:selected', 'TITAN-DEV-VAARCHIVES', 'TITAN-DEV-VACONFIG:selected', 'TITAN-DEV-VALIVEARCHIVES', 'TITAN-DEV-VAPULSE:selected', 'TITAN-DEV-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('TITAN-SPRINT')){
+        return ['TITAN-SPRINT-BCM:selected', 'TITAN-SPRINT-C1LIS:selected', 'TITAN-SPRINT-C1LIS-OLD:selected', 'TITAN-SPRINT-DEMO:selected', 'TITAN-SPRINT-IMP:selected', 'TITAN-SPRINT-INTEGRATION-DATA:selected', 'TITAN-SPRINT-LIS:selected', 'TITAN-SPRINT-LIS-FUSIONAUTH:selected', 'TITAN-SPRINT-LIS-JULY24TEST:selected', 'TITAN-SPRINT-LISMDM:selected', 'TITAN-SPRINT-MYLIS:selected', 'TITAN-SPRINT-PROGRAMS:selected', 'TITAN-SPRINT-QUEST:selected', 'TITAN-SPRINT-SAGIS:selected', 'TITAN-SPRINT-SAGIS-HemOnc:selected', 'TITAN-SPRINT-SOLARIS:selected', 'TITAN-SPRINT-TESTBCM:selected', 'TITAN-SPRINT-TEST-LIS:selected', 'TITAN-SPRINT-THX:selected', 'TITAN-SPRINT-THXVAR:selected', 'TITAN-SPRINT-TLA:selected', 'TITAN-SPRINT-UPM:selected', 'TITAN-SPRINT-VAARCHIVES', 'TITAN-SPRINT-VACONFIG', 'TITAN-SPRINT-VALIVEARCHIVES', 'TITAN-SPRINT-VAPULSE:selected', 'TITAN-SPRINT-VPLABS:selected', 'TITAN-SPRINT-VPLABS_OLD:selected']
+    }
+    else if(DeploymentSet.equals('TITAN-QC')){
+        return ['TITAN-QC-BCM:selected', 'TITAN-QC-BCMTEST:selected', 'TITAN-QC-DEMO:selected', 'TITAN-QC-IMP:selected', 'TITAN-QC-LABS:selected', 'TITAN-QC-LIS:selected', 'TITAN-QC-LIS-REPORTS:selected', 'TITAN-QC-LIS-TEST:selected', 'TITAN-QC-MIRACA:selected', 'TITAN-QC-MYLIS:selected', 'TITAN-QC-PLUS:selected', 'TITAN-QC-PULSE:selected', 'TITAN-QC-QUEST:selected', 'TITAN-QC-SAGIS:selected', 'TITAN-QC-SOLARIS:selected', 'TITAN-QC-TLA:selected', 'TITAN-QC-UPM:selected', 'TITAN-QC-VACONFIG', 'TITAN-QC-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('VITAL-DEV')){
+        return ['VITAL-DEV-LISVO:selected', 'VITAL-DEV-SONARQUBE:selected', 'VITAL-DEV-TLAVO:selected', 'VITAL-DEV-VPLABSVO:selected']
+    }
+    else if(DeploymentSet.equals('VITAL-QC')){
+        return ['VITAL-QC-BCM:selected', 'VITAL-QC-DESK:selected', 'VITAL-QC-LIS:selected', 'VITAL-QC-QUEST:selected', 'VITAL-QC-SAGIS:selected', 'VITAL-QC-THX:selected', 'VITAL-QC-THXVAR:selected', 'VITAL-QC-TLA:selected', 'VITAL-QC-UPM:selected', 'VITAL-QC-VACONFIG:selected', 'VITAL-QC-VAPULSE:selected', 'VITAL-QC-VPLABS:selected']
+    }
+}
+else if(Server.equals('192.168.168.27')){
+    if(DeploymentSet.equals('ALL')){
+        return ['00THX_PA', 'ArunDev', 'AVIOR-DEV-VAARCHIVES', 'AVIOR-QC-VAARCHIVES', 'AVIOR-SPRINT-VAARCHIVES', 'BikesStore', 'Core_DB_VitalCoreDB-DevLocal', 'DBA', 'ELIXIER-DEV-CPS', 'ELIXIER-DEV-VitalAccess', 'ELIXIER-QC-CPS', 'ELIXIER-QC-VitalAccess', 'INT-DEV-LIS:selected', 'INT-DEV-THX:selected', 'INT-DEV-UPM:selected', 'INT-DEV-VACONFIG', 'INT-HUB-IMP:selected', 'INT-HUB-LABS:selected', 'INT-HUB-LABS-BACKUP', 'INT-HUB-LIS:selected', 'INT-HUB-LIS-BACKUP', 'INT-HUB-MIRACA:selected', 'INT-HUB-PLUS:selected', 'INT-HUB-QUEST:selected', 'INT-HUB-SAGIS:selected', 'INT-HUB-THX:selected', 'INT-HUB-THXNEW:selected', 'INT-HUB-THXVAR:selected', 'INT-HUB-UPM:selected', 'INT-HUB-UPM_BACKUP', 'INT-HUB-VACONFIG', 'INT-HUB-VPLABS:selected', 'INT-QC-BCM:selected', 'INT-QC-IMP:selected', 'INT-QC-LABS:selected', 'INT-QC-LIS:selected', 'INT-QC-MIRACA:selected', 'INT-QC-PLUS:selected', 'INT-QC-QUEST:selected', 'INT-QC-SAGIS:selected', 'INT-QC-SOLARIS:selected', 'INT-QC-THX:selected', 'INT-QC-THXVAR:selected', 'INT-QC-TLA:selected', 'INT-QC-UPM:selected', 'INT-QC-VACONFIG', 'INT-QC-VAPULSE:selected', 'INT-QC-VPLABS:selected', 'INT-TEMP-LIS_11mar2022', 'INT-TEST-UPM:selected', 'JUPITER-DEV-BCM:selected', 'JUPITER-DEV-BCMTEST:selected', 'JUPITER-DEV-DEMO:selected', 'JUPITER-DEV-LIS:selected', 'JUPITER-DEV-MYLIS:selected', 'JUPITER-DEV-PROGRAMS:selected', 'JUPITER-DEV-QUEST:selected', 'JUPITER-DEV-SAGIS:selected', 'JUPITER-DEV-SOLARIS:selected', 'JUPITER-DEV-THX:selected', 'JUPITER-DEV-THXVAR:selected', 'JUPITER-DEV-TLA:selected', 'JUPITER-DEV-UPM:selected', 'JUPITER-DEV-VACONFIG', 'JUPITER-DEV-VAPULSE:selected', 'JUPITER-DEV-VPLABS:selected', 'JUPITER-LIVE-BCM:selected', 'JUPITER-QC-BCM:selected', 'JUPITER-QC-BCMTEST:selected', 'JUPITER-QC-DEMO:selected', 'JUPITER-QC-LIS:selected', 'JUPITER-QC-MYLIS:selected', 'JUPITER-QC-PROGRAMS:selected', 'JUPITER-QC-QUEST:selected', 'JUPITER-QC-SAGIS:selected', 'JUPITER-QC-SOLARIS:selected', 'JUPITER-QC-STORM:selected', 'JUPITER-QC-THX:selected', 'JUPITER-QC-THXVAR:selected', 'JUPITER-QC-TLA:selected', 'JUPITER-QC-UPM:selected', 'JUPITER-QC-VACONFIG', 'JUPITER-QC-VAPULSE:selected', 'JUPITER-QC-VPLABS:selected', 'JUPITER-SPRINT-LIS:selected', 'JUPITER-SPRINT-PROGRAMS:selected', 'JUPITER-SPRINT-SOLARIS:selected', 'JUPITER-SPRINT-THX:selected', 'JUPITER-SPRINT-VACONFIG', 'LIS_LOCAL_SP5_LABS', 'LIS_THX_L2L_CP_DEV', 'LIS_THX_L2L_CP_QC', 'NIPT_live', 'NIPT_qa', 'PEGASUS-QC-DX', 'REPORT-QC-MANAGER:selected', 'SampleDB', 'STEMS_Local_Live', 'stems_qa', 'stems_qa1', 'THX_PA', 'VAArchives', 'VAARCHIVES_Local', 'VALive-Archives', 'VITAL-INVOICE', 'VITALSTATS-SPRINT-THX:selected']
+    }
+    else if(DeploymentSet.equals('INT-DEV')){
+        return ['INT-DEV-LIS:selected', 'INT-DEV-THX:selected', 'INT-DEV-UPM:selected', 'INT-DEV-VACONFIG']
+    }
+    else if(DeploymentSet.equals('INT-HUB')){
+        return ['INT-HUB-IMP:selected', 'INT-HUB-LABS:selected', 'INT-HUB-LABS-BACKUP', 'INT-HUB-LIS:selected', 'INT-HUB-LIS-BACKUP', 'INT-HUB-MIRACA:selected', 'INT-HUB-PLUS:selected', 'INT-HUB-QUEST:selected', 'INT-HUB-SAGIS:selected', 'INT-HUB-THX:selected', 'INT-HUB-THXNEW:selected', 'INT-HUB-THXVAR:selected', 'INT-HUB-UPM:selected', 'INT-HUB-UPM_BACKUP', 'INT-HUB-VACONFIG', 'INT-HUB-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('INT-QC')){
+        return ['INT-QC-BCM:selected', 'INT-QC-IMP:selected', 'INT-QC-LABS:selected', 'INT-QC-LIS:selected', 'INT-QC-MIRACA:selected', 'INT-QC-PLUS:selected', 'INT-QC-QUEST:selected', 'INT-QC-SAGIS:selected', 'INT-QC-SOLARIS:selected', 'INT-QC-THX:selected', 'INT-QC-THXVAR:selected', 'INT-QC-TLA:selected', 'INT-QC-UPM:selected', 'INT-QC-VACONFIG', 'INT-QC-VAPULSE:selected', 'INT-QC-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('JUPITER-DEV')){
+        return ['JUPITER-DEV-BCM:selected', 'JUPITER-DEV-BCMTEST:selected', 'JUPITER-DEV-DEMO:selected', 'JUPITER-DEV-LIS:selected', 'JUPITER-DEV-MYLIS:selected', 'JUPITER-DEV-PROGRAMS:selected', 'JUPITER-DEV-QUEST:selected', 'JUPITER-DEV-SAGIS:selected', 'JUPITER-DEV-SOLARIS:selected', 'JUPITER-DEV-THX:selected', 'JUPITER-DEV-THXVAR:selected', 'JUPITER-DEV-TLA:selected', 'JUPITER-DEV-UPM:selected', 'JUPITER-DEV-VACONFIG', 'JUPITER-DEV-VAPULSE:selected', 'JUPITER-DEV-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('JUPITER-QC')){
+        return ['JUPITER-QC-BCM:selected', 'JUPITER-QC-BCMTEST:selected', 'JUPITER-QC-DEMO:selected', 'JUPITER-QC-LIS:selected', 'JUPITER-QC-MYLIS:selected', 'JUPITER-QC-PROGRAMS:selected', 'JUPITER-QC-QUEST:selected', 'JUPITER-QC-SAGIS:selected', 'JUPITER-QC-SOLARIS:selected', 'JUPITER-QC-STORM:selected', 'JUPITER-QC-THX:selected', 'JUPITER-QC-THXVAR:selected', 'JUPITER-QC-TLA:selected', 'JUPITER-QC-UPM:selected', 'JUPITER-QC-VACONFIG', 'JUPITER-QC-VAPULSE:selected', 'JUPITER-QC-VPLABS:selected']
+    }
+}
+else if(Server.equals('192.168.168.94')){
+    if(DeploymentSet.equals('ALL')){
+        return ['AVIOR-DEV-MONITORING', 'AVIOR-QC-MONITORING', 'AVIOR-TEST-COREDB', 'CRBSFTPLOGS350', 'INT-HUB-SAGIS:selected', 'INT-QC-LIS:selected', 'P4-DEV-BCM:selected', 'P4-DEV-DEMO:selected', 'P4-DEV-IMP:selected', 'P4-DEV-LIS:selected', 'P4-DEV-SAGIS:selected', 'P4-DEV-THX:selected', 'P4-DEV-THXADMIN:selected', 'P4-DEV-THX-FusionAuth', 'P4-DEV-THXVAR:selected', 'P4-DEV-UPM:selected', 'P4-DEV-VAARCHIVES', 'P4-DEV-VALIVEARCHIVES', 'P4-DEV-VPLABS:selected', 'P4PORTAL-DEV-LIS', 'P4-QC-IMP:selected', 'P4-QC-NYR:selected', 'P4-QC-THX:selected', 'P4-QC-THXADMIN:selected', 'P4-QC-THXVAR:selected', 'P4-QC-VACONFIG', 'P4-QC-VAPULSE:selected', 'P4-SPRINT-BCM:selected', 'P4-SPRINT-LIS:selected', 'P4-SPRINT-SOLARIS:selected', 'P4-SPRINT-THX:selected', 'P4-SPRINT-THX_AZUREPAAS:selected', 'P4-SPRINT-THX_Testing:selected', 'P4-SPRINT-THXVAR:selected', 'P4-SPRINT-UPM:selected', 'P4-SPRINT-VACONFIG', 'P4-SPRINT-VAPULSE:selected', 'P4-TEST-THX:selected', 'P4-TEST-THXVAR:selected', 'REPORTS-DEV-BCM:selected', 'REPORTS-DEV-LIS:selected', 'REPORTS-DEV-MYLIS:selected', 'REPORTS-DEV-QUEST:selected', 'REPORTS-DEV-SAGIS:selected', 'REPORTS-DEV-TLA:selected', 'REPORTS-DEV-UPM:selected', 'REPORTS-DEV-VPLABS:selected', 'REPORTS-QC-BCM:selected', 'REPORTS-QC-DEMO:selected', 'REPORTS-QC-IMP:selected', 'REPORTS-QC-LABS:selected', 'REPORTS-QC-LIS:selected', 'REPORTS-QC-MIRACA:selected', 'REPORTS-QC-MYLIS:selected', 'REPORTS-QC-PLUS:selected', 'REPORTS-QC-PNX:selected', 'REPORTS-QC-PROGRAMS:selected', 'REPORTS-QC-QUEST:selected', 'REPORTS-QC-SAGIS:selected', 'REPORTS-QC-SOLARIS:selected', 'REPORTS-QC-THX:selected', 'REPORTS-QC-THXVAR:selected', 'REPORTS-QC-TLA:selected', 'REPORTS-QC-UPM:selected', 'REPORTS-QC-VACONFIG', 'REPORTS-QC-VPLABS:selected', 'Sagis_Logs', 'Solarwind_Hyperv', 'SolarWindsFlowhyperv', 'SolarWindshypervLog', 'SUPPORT-QC-BCM:selected', 'SUPPORT-QC-LIS:selected', 'SUPPORT-QC-MYLIS:selected', 'SUPPORT-QC-QUEST:selected', 'SUPPORT-QC-SAGIS:selected', 'SUPPORT-QC-THX:selected', 'SUPPORT-QC-THXVAR:selected', 'SUPPORT-QC-TLA:selected', 'SUPPORT-QC-UPM:selected', 'SUPPORT-QC-VACONFIG', 'SUPPORT-QC-VPLABS:selected', 'TITAN-P4-DEV-THX:selected']
+    }
+    else if(DeploymentSet.equals('P4-DEV')){
+        return ['P4-DEV-BCM:selected', 'P4-DEV-DEMO:selected', 'P4-DEV-IMP:selected', 'P4-DEV-LIS:selected', 'P4-DEV-SAGIS:selected', 'P4-DEV-THX:selected', 'P4-DEV-THXADMIN:selected', 'P4-DEV-THX-FusionAuth', 'P4-DEV-THXVAR:selected', 'P4-DEV-UPM:selected', 'P4-DEV-VAARCHIVES', 'P4-DEV-VALIVEARCHIVES', 'P4-DEV-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('P4-SPRINT')){
+        return ['P4-SPRINT-BCM:selected', 'P4-SPRINT-LIS:selected', 'P4-SPRINT-THX:selected', 'P4-SPRINT-THX_AZUREPAAS:selected', 'P4-SPRINT-SOLARIS:selected', 'P4-SPRINT-THX_Testing:selected', 'P4-SPRINT-THXVAR:selected', 'P4-SPRINT-UPM:selected', 'P4-SPRINT-VACONFIG', 'P4-SPRINT-VAPULSE:selected']
+    }
+    else if(DeploymentSet.equals('P4-QC')){
+        return ['P4-QC-IMP:selected', 'P4-QC-NYR:selected', 'P4-QC-THX:selected', 'P4-QC-THXADMIN:selected', 'P4-QC-THXVAR:selected', 'P4-QC-VACONFIG', 'P4-QC-VAPULSE:selected']
+    }
+    else if(DeploymentSet.equals('REPORTS-DEV')){
+        return ['REPORTS-DEV-BCM:selected', 'REPORTS-DEV-LIS:selected', 'REPORTS-DEV-MYLIS:selected', 'REPORTS-DEV-QUEST:selected', 'REPORTS-DEV-SAGIS:selected', 'REPORTS-DEV-TLA:selected', 'REPORTS-DEV-UPM:selected', 'REPORTS-DEV-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('REPORTS-QC')){
+        return ['REPORTS-QC-BCM:selected', 'REPORTS-QC-DEMO:selected', 'REPORTS-QC-IMP:selected', 'REPORTS-QC-LABS:selected', 'REPORTS-QC-LIS:selected', 'REPORTS-QC-MIRACA:selected', 'REPORTS-QC-MYLIS:selected', 'REPORTS-QC-PLUS:selected', 'REPORTS-QC-PNX:selected', 'REPORTS-QC-PROGRAMS:selected', 'REPORTS-QC-QUEST:selected', 'REPORTS-QC-SAGIS:selected', 'REPORTS-QC-SOLARIS:selected', 'REPORTS-QC-THX:selected', 'REPORTS-QC-THXVAR:selected', 'REPORTS-QC-TLA:selected', 'REPORTS-QC-UPM:selected', 'REPORTS-QC-VACONFIG', 'REPORTS-QC-VPLABS:selected']
+    }
+    else if(DeploymentSet.equals('SUPPORT-QC')){
+        return ['SUPPORT-QC-BCM:selected', 'SUPPORT-QC-LIS:selected', 'SUPPORT-QC-MYLIS:selected', 'SUPPORT-QC-QUEST:selected', 'SUPPORT-QC-SAGIS:selected', 'SUPPORT-QC-THX:selected', 'SUPPORT-QC-THXVAR:selected', 'SUPPORT-QC-TLA:selected', 'SUPPORT-QC-UPM:selected', 'SUPPORT-QC-VACONFIG', 'SUPPORT-QC-VPLABS:selected']
+    }
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Check Boxes
+Referenced parameters
+?
+Server,DeploymentSet
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Reference Parameter
+?
+
+Name
+ToggleAllCheckBoxes
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return """<div>
+<button type="button" onclick="setTimeout(() => document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true), 0);">☑ Check All</button>
+<button type="button" onclick="setTimeout(() => document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false), 0);">☐ Uncheck All</button>
+</div>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return ''
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+Advanced
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.133:8080/project/ORION/Execute-SQLScripts/Add_IP_Country
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+[Array] $Databases = $ENV:Database -split ','
+ 
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+ 
+foreach($Database in $Databases){
+    "Database = $Database"
+    Invoke-Sqlcmd -ServerInstance $ENV:Server -Database $Database -Credential $Credentials -InputFile 'D:\VitalAxis\Jenkins_Build\ORION\SQL_Scripts\IP_Country.sql' -TrustServerCertificate
+}
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1
