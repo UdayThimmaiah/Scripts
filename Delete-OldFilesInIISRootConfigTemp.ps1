@@ -1,0 +1,25 @@
+# Delete old files in IIS_Root/Config/Temp folder
+$DaysToRetain = 15
+
+$IISRoot = 'D:\VitalAxis\Websites-IIS'
+
+$IISSites = @()
+
+[Array] $IISSites = Get-ChildItem -Directory -LiteralPath $IISRoot
+
+$i = 1
+foreach($IISSite in $IISSites){
+    "----------------------------------------------------------------------------------"
+    "($i of $($IISSites.Count))  $IISSite";$i++
+    ""
+
+    $TempFiles = @()
+    if(Test-Path "$IISRoot\$IISSite\Config\Temp"){
+        $TempFiles = Get-ChildItem -File -Recurse -LiteralPath "$IISRoot\$IISSite\Config\Temp" | Where LastWriteTime -lt (Get-Date).AddDays(-$DaysToRetain)
+        foreach($TempFile in $TempFiles){
+            Remove-Item -LiteralPath $TempFile.FullName
+
+            Write-Host "Deleting $($TempFile.Name)"
+        }
+    }
+}

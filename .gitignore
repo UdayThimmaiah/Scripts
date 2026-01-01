@@ -1,0 +1,13 @@
+# Temp / editor
+*.log
+*.tmp
+*.swp
+
+# Secrets (VERY IMPORTANT)
+*.txt
+*.env
+*.key
+*.pem
+
+# PowerShell temp
+*.ps1~
