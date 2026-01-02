@@ -1,0 +1,19 @@
+SELECT 
+    rh.destination_database_name AS RestoredDatabase,
+    rh.restore_date,
+    bmf.physical_device_name AS BackupFileUsed,
+    b.backup_start_date,
+    b.backup_finish_date,
+    b.user_name AS BackupTakenBy,
+    rh.user_name AS RestoredBy,
+    b.type AS BackupType
+FROM 
+    msdb.dbo.restorehistory rh
+JOIN 
+    msdb.dbo.backupset b ON rh.backup_set_id = b.backup_set_id
+JOIN 
+    msdb.dbo.backupmediafamily bmf ON b.media_set_id = bmf.media_set_id
+WHERE 
+    rh.destination_database_name = 'TITAN-SPRINT-LIS'
+ORDER BY 
+    rh.restore_date DESC;

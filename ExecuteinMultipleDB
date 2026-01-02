@@ -1,0 +1,16 @@
+$DBNames = @('VAStage-LIS', 'VAStage-THX', 'VAStage-SOLARIS','VAStage-THXVAR','VAStage-TLA','VPStage-QUEST')
+foreach ($DB in $DBNames) {
+#$SQLServer="vaazeastmi02.91d341ab60f8.database.windows.net"
+$SQLServer="vaazdbstage02.6c7e9c66220d.database.windows.net"
+$filepath=Get-ChildItem 'C:\Users\sekhar.karadi\Desktop\DT_03022025_1'| select Fullname
+$user=''
+$pass=''
+
+
+foreach($script in $filepath)
+{
+Write-host $script.fullName
+Invoke-Sqlcmd -ServerInstance $SQLServer -Database $DB -inputfile $script.fullName -Username $user -Password $pass
+Write-Host "Processing DB: $DB"
+}
+}

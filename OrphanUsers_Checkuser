@@ -1,0 +1,23 @@
+DECLARE @DBName NVARCHAR(255)
+DECLARE @SQL NVARCHAR(MAX)
+
+-- Cursor to iterate through all databases
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND name NOT IN ('master', 'tempdb', 'model', 'msdb')
+
+OPEN db_cursor
+FETCH NEXT FROM db_cursor INTO @DBName
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = 'USE [' + @DBName + ']; EXEC sp_change_users_login ''AUTO_FIX'', ''reportsqctim1'';'
+    EXEC sp_executesql @SQL
+
+    FETCH NEXT FROM db_cursor INTO @DBName
+END
+
+CLOSE db_cursor
+DEALLOCATE db_cursor
+

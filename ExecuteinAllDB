@@ -1,0 +1,18 @@
+$SQLServer = "192.168.168.26"
+$filepath = Get-ChildItem 'C:\Users\udaykumar.t\Downloads\00.LiveNon_P4' | select FullName
+$user = 'server_linked'
+$pass = 'Star@123'
+
+# Get list of databases from the server, excluding those ending with 'THX' or 'THXVAR'
+$databases = Invoke-Sqlcmd -ServerInstance $SQLServer -Query "SELECT name FROM sys.databases WHERE name NOT LIKE '%THX' AND name NOT LIKE '%THXVAR'" -Username $user -Password $pass
+
+foreach ($db in $databases)
+{
+    $databaseName = $db.name
+    foreach ($script in $filepath)
+    {
+        Write-Host "Executing script $($script.FullName) on database $databaseName"
+        Invoke-Sqlcmd -ServerInstance $SQLServer -Database $databaseName -InputFile $script.FullName -Username $user -Password $pass
+    }
+}
+

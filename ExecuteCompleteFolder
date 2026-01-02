@@ -1,0 +1,11 @@
+$SQLServer=""
+$db=''
+$filepath=Get-ChildItem 'C:\Users\sekhar.karadi\Desktop\ppwfileidupdation'| select Fullname
+$user=''
+$pass=''
+
+foreach($script in $filepath)
+{
+Write-host $script.fullName
+Invoke-Sqlcmd -ServerInstance $SQLServer -Database $db -inputfile $script.fullName -Username $user -Password $pass
+}
