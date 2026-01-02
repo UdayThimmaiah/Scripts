@@ -1,0 +1,447 @@
+$Server = $ENV:Server
+
+[Array] $Applications = $ENV:Application -split ','
+
+$IISRoot = 'd$\VitalAxis\Websites-IIS'
+
+foreach($Application in $Applications){
+    [xml] $AppSettings = Get-Content "\\$Server\$IISRoot\$Application\Web.config"
+    [Array] $Endpoints = ($AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_ENDPOINTS | Select -ExpandProperty value) -split ','
+    $RedisDeploymentKey = $AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_DEPLOYMENTKEY | Select -ExpandProperty value
+    $RedisAccessKey = $AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_ACCESSKEY | Select -ExpandProperty value
+
+    foreach($Endpoint in $Endpoints){
+        $RedisHost = $Endpoint -replace '(.*?)(:)(\d+)', '$1'
+        $RedisPort = $Endpoint -replace '(.*?)(:)(\d+)', '$3'
+
+        [Array] $Keys = @()
+        [Array] $Keys = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey KEYS *
+
+        $Keys = $Keys | Where { $_ -match "[.]$RedisDeploymentKey[.]"}
+        
+        Write-Host "[$Application]  Count of Keys in Port $RedisPort = $($Keys.Count)"
+
+        foreach($Key in $Keys){
+            $ClearKey = ''
+            $ClearKeyPort = ''
+
+            $ClearKey = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey DEL $Key
+            if($ClearKey -match ':'){
+                $ClearKeyPort = $ClearKey -replace '.*?:(\d+)$', '$1'
+                $ClearKey = D:\Softwares\redis-cli.exe -h $RedisHost -p $ClearKeyPort -a $RedisAccessKey DEL $Key
+            }
+        }
+    }
+
+    Write-Host "After clearing, remaining Keys in $Application :"
+    foreach($Endpoint in $Endpoints){
+        $RedisHost = $Endpoint -replace '(.*?)(:)(\d+)', '$1'
+        $RedisPort = $Endpoint -replace '(.*?)(:)(\d+)', '$3'
+
+        [Array] $Keys = @()
+        [Array] $Keys = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey KEYS *
+
+        $Keys = $Keys | Where { $_ -match "[.]$RedisDeploymentKey[.]"}
+        
+        Write-Host "Count of Keys in Port $RedisPort = $($Keys.Count)"
+    }
+    Write-Host ""
+}
+#################################Full for reference############################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+5
+3
+Udaykumar T
+
+log out
+Dashboard
+ORION
+Clear-RedisCache
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Clear Redis Cache ( /LCO.aspx )
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+Server
+Choices
+?
+192.168.168.45
+192.168.168.60
+192.168.168.81
+Description
+?
+IIS Server
+Plain text
+Preview
+Active Choices Reactive Parameter
+?
+
+Name
+DeploymentSet
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Server.equals('192.168.168.45')){
+    return[
+        'ALL',
+        'P4-SPRINT',
+        'P4-QC',
+        'SUPPORT-QC',
+        'INT-QC',
+        'INT-HUB'
+    ]
+}
+else if(Server.equals('192.168.168.60')){
+    return[
+        'ALL',
+        'TITAN-SPRINT',
+        'TITAN-QC'
+    ]
+}
+else if(Server.equals('192.168.168.81')){
+    return[
+        'ALL',
+        'VITAL-QC',
+        'REPORTS-QC',
+        'JUPITER-QC'
+    ]
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+Referenced parameters
+?
+Server
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Parameter
+?
+
+Name
+Application
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Server.equals('192.168.168.45')){
+    if(DeploymentSet.equals('ALL')){
+        return ['P4-SPRINT-LIS', 'P4-SPRINT-UPM', 'P4-SPRINT-BCM', 'P4-SPRINT-THX', 'P4-SPRINT-THXVAR', 'P4-SPRINT-SOLARIS', 'P4-QC-IMP', 'P4-QC-THX', 'P4-QC-THXVAR', 'P4-TEST-THX', 'SUPPORT-QC-LIS', 'SUPPORT-QC-UPM', 'SUPPORT-QC-TLA', 'SUPPORT-QC-VPLABS', 'SUPPORT-QC-QUEST', 'SUPPORT-QC-MYLIS', 'SUPPORT-QC-BCM', 'SUPPORT-QC-SAGIS', 'SUPPORT-QC-THX', 'SUPPORT-QC-THXVAR', 'INT-DEV-LIS', 'INT-DEV-UPM', 'INT-DEV-THX', 'INT-QC-LIS', 'INT-QC-UPM', 'INT-QC-TLA', 'INT-QC-VPLABS', 'INT-QC-QUEST', 'INT-QC-BCM', 'INT-QC-SAGIS', 'INT-QC-IMP', 'INT-QC-LABS', 'INT-QC-PLUS', 'INT-QC-MIRACA', 'INT-QC-THX', 'INT-QC-THXVAR', 'INT-QC-SOLARIS', 'INT-HUB-LIS', 'INT-HUB-UPM', 'INT-HUB-TLA', 'INT-HUB-VPLABS', 'INT-HUB-QUEST', 'INT-HUB-SAGIS', 'INT-HUB-IMP', 'INT-HUB-LABS', 'INT-HUB-PLUS', 'INT-HUB-MIRACA', 'INT-HUB-THX', 'INT-HUB-THXVAR', 'INT-HUB-SOLARIS']
+    }
+    else if(DeploymentSet.equals('P4-SPRINT')){
+        return ['P4-SPRINT-LIS', 'P4-SPRINT-UPM', 'P4-SPRINT-BCM', 'P4-SPRINT-THX', 'P4-SPRINT-THXVAR', 'P4-SPRINT-SOLARIS']
+    }
+    else if(DeploymentSet.equals('P4-QC')){
+        return ['P4-QC-IMP', 'P4-QC-THX', 'P4-QC-THXVAR', 'P4-TEST-THX']
+    }
+    else if(DeploymentSet.equals('SUPPORT-QC')){
+        return ['SUPPORT-QC-LIS', 'SUPPORT-QC-UPM', 'SUPPORT-QC-TLA', 'SUPPORT-QC-VPLABS', 'SUPPORT-QC-QUEST', 'SUPPORT-QC-MYLIS', 'SUPPORT-QC-BCM', 'SUPPORT-QC-SAGIS', 'SUPPORT-QC-THX', 'SUPPORT-QC-THXVAR']
+    }
+    else if(DeploymentSet.equals('INT-QC')){
+        return ['INT-DEV-LIS', 'INT-DEV-UPM', 'INT-DEV-THX', 'INT-QC-LIS', 'INT-QC-UPM', 'INT-QC-TLA', 'INT-QC-VPLABS', 'INT-QC-QUEST', 'INT-QC-BCM', 'INT-QC-SAGIS', 'INT-QC-IMP', 'INT-QC-LABS', 'INT-QC-PLUS', 'INT-QC-MIRACA', 'INT-QC-THX', 'INT-QC-THXVAR', 'INT-QC-SOLARIS']
+    }
+    else if(DeploymentSet.equals('INT-HUB')){
+        return ['INT-HUB-LIS', 'INT-HUB-UPM', 'INT-HUB-TLA', 'INT-HUB-VPLABS', 'INT-HUB-QUEST', 'INT-HUB-SAGIS', 'INT-HUB-IMP', 'INT-HUB-LABS', 'INT-HUB-PLUS', 'INT-HUB-MIRACA', 'INT-HUB-THX', 'INT-HUB-THXVAR', 'INT-HUB-SOLARIS']
+    }
+}
+else if(Server.equals('192.168.168.60')){
+    if(DeploymentSet.equals('ALL')){
+        return ['TITAN-DEV-LIS', 'TITAN-SPRINT-LIS', 'TITAN-SPRINT-UPM', 'TITAN-SPRINT-TLA', 'TITAN-SPRINT-VPLABS', 'TITAN-SPRINT-QUEST', 'TITAN-SPRINT-MYLIS', 'TITAN-SPRINT-BCM', 'TITAN-SPRINT-SAGIS', 'TITAN-SPRINT-PROGRAMS', 'TITAN-SPRINT-DEMO', 'TITAN-SPRINT-THX', 'TITAN-SPRINT-THXVAR', 'TITAN-SPRINT-SOLARIS', 'TITAN-QC-LIS', 'TITAN-QC-UPM', 'TITAN-QC-TLA', 'TITAN-QC-VPLABS', 'TITAN-QC-QUEST', 'TITAN-QC-MYLIS', 'TITAN-QC-BCM', 'TITAN-QC-SAGIS', 'TITAN-QC-DEMO', 'TITAN-QC-IMP', 'TITAN-QC-LABS', 'TITAN-QC-PLUS', 'TITAN-QC-MIRACA', 'TITAN-QC-SOLARIS', 'TITAN-QC-BCMTEST', 'TITAN-TEST-UPM', 'P4-SPRINT-THX', 'JUPITER-QC-SAGIS']
+    }
+    else if(DeploymentSet.equals('TITAN-SPRINT')){
+        return ['TITAN-DEV-LIS', 'TITAN-SPRINT-LIS', 'TITAN-SPRINT-UPM', 'TITAN-SPRINT-TLA', 'TITAN-SPRINT-VPLABS', 'TITAN-SPRINT-QUEST', 'TITAN-SPRINT-MYLIS', 'TITAN-SPRINT-BCM', 'TITAN-SPRINT-SAGIS', 'TITAN-SPRINT-PROGRAMS', 'TITAN-SPRINT-DEMO', 'TITAN-SPRINT-THX', 'TITAN-SPRINT-THXVAR', 'TITAN-SPRINT-SOLARIS']
+    }
+    else if(DeploymentSet.equals('TITAN-QC')){
+        return ['TITAN-QC-LIS', 'TITAN-QC-UPM', 'TITAN-QC-TLA', 'TITAN-QC-VPLABS', 'TITAN-QC-QUEST', 'TITAN-QC-MYLIS', 'TITAN-QC-BCM', 'TITAN-QC-SAGIS', 'TITAN-QC-DEMO', 'TITAN-QC-IMP', 'TITAN-QC-LABS', 'TITAN-QC-PLUS', 'TITAN-QC-MIRACA', 'TITAN-QC-SOLARIS', 'TITAN-QC-BCMTEST']
+    }
+}
+else if(Server.equals('192.168.168.81')){
+    if(DeploymentSet.equals('ALL')){
+        return ['TITAN-SPRINT-UPM', 'TITAN-SPRINT-TLA', 'TITAN-SPRINT-BCM', 'TITAN-SPRINT-SAGIS', 'VITAL-QC-LIS', 'VITAL-QC-UPM', 'VITAL-QC-TLA', 'VITAL-QC-VPLABS', 'VITAL-QC-QUEST', 'VITAL-QC-BCM', 'VITAL-QC-SAGIS', 'VITAL-QC-THX', 'VITAL-QC-THXVAR', 'REPORTS-DEV-LIS', 'REPORTS-DEV-UPM', 'REPORTS-DEV-TLA', 'REPORTS-DEV-VPLABS', 'REPORTS-DEV-QUEST', 'REPORTS-DEV-MYLIS', 'REPORTS-DEV-BCM', 'REPORTS-DEV-SAGIS', 'REPORTS-QC-LIS', 'REPORTS-QC-UPM', 'REPORTS-QC-TLA', 'REPORTS-QC-VPLABS', 'REPORTS-QC-QUEST', 'REPORTS-QC-MYLIS', 'REPORTS-QC-BCM', 'REPORTS-QC-SAGIS', 'REPORTS-QC-PROGRAMS', 'REPORTS-QC-DEMO', 'REPORTS-QC-IMP', 'REPORTS-QC-LABS', 'REPORTS-QC-PLUS', 'REPORTS-QC-MIRACA', 'REPORTS-QC-THX', 'REPORTS-QC-THXVAR', 'REPORTS-QC-SOLARIS', 'JUPITER-DEV-LIS', 'JUPITER-DEV-UPM', 'JUPITER-DEV-TLA', 'JUPITER-DEV-VPLABS', 'JUPITER-DEV-QUEST', 'JUPITER-DEV-BCM', 'JUPITER-DEV-THX', 'JUPITER-DEV-THXVAR', 'JUPITER-DEV-SOLARIS', 'JUPITER-SPRINT-LIS', 'JUPITER-SPRINT-PROGRAMS', 'JUPITER-SPRINT-THX', 'JUPITER-SPRINT-SOLARIS', 'JUPITER-QC-LIS', 'JUPITER-QC-UPM', 'JUPITER-QC-TLA', 'JUPITER-QC-VPLABS', 'JUPITER-QC-QUEST', 'JUPITER-QC-MYLIS', 'JUPITER-QC-BCM', 'JUPITER-QC-SAGIS', 'JUPITER-QC-THX', 'JUPITER-QC-THXVAR', 'JUPITER-QC-SOLARIS']
+    }
+    else if(DeploymentSet.equals('VITAL-QC')){
+        return ['VITAL-QC-LIS', 'VITAL-QC-UPM', 'VITAL-QC-TLA', 'VITAL-QC-VPLABS', 'VITAL-QC-QUEST', 'VITAL-QC-BCM', 'VITAL-QC-SAGIS', 'VITAL-QC-THX', 'VITAL-QC-THXVAR']
+    }
+    else if(DeploymentSet.equals('REPORTS-QC')){
+        return ['REPORTS-DEV-LIS', 'REPORTS-DEV-UPM', 'REPORTS-DEV-TLA', 'REPORTS-DEV-VPLABS', 'REPORTS-DEV-QUEST', 'REPORTS-DEV-MYLIS', 'REPORTS-DEV-BCM', 'REPORTS-DEV-SAGIS', 'REPORTS-QC-LIS', 'REPORTS-QC-UPM', 'REPORTS-QC-TLA', 'REPORTS-QC-VPLABS', 'REPORTS-QC-QUEST', 'REPORTS-QC-MYLIS', 'REPORTS-QC-BCM', 'REPORTS-QC-SAGIS', 'REPORTS-QC-PROGRAMS', 'REPORTS-QC-DEMO', 'REPORTS-QC-IMP', 'REPORTS-QC-LABS', 'REPORTS-QC-PLUS', 'REPORTS-QC-MIRACA', 'REPORTS-QC-THX', 'REPORTS-QC-THXVAR', 'REPORTS-QC-SOLARIS']
+    }
+    else if(DeploymentSet.equals('JUPITER-QC')){
+        return ['JUPITER-DEV-LIS', 'JUPITER-DEV-UPM', 'JUPITER-DEV-TLA', 'JUPITER-DEV-VPLABS', 'JUPITER-DEV-QUEST', 'JUPITER-DEV-BCM', 'JUPITER-DEV-THX', 'JUPITER-DEV-THXVAR', 'JUPITER-DEV-SOLARIS', 'JUPITER-SPRINT-LIS', 'JUPITER-SPRINT-PROGRAMS', 'JUPITER-SPRINT-THX', 'JUPITER-SPRINT-SOLARIS', 'JUPITER-QC-LIS', 'JUPITER-QC-UPM', 'JUPITER-QC-TLA', 'JUPITER-QC-VPLABS', 'JUPITER-QC-QUEST', 'JUPITER-QC-MYLIS', 'JUPITER-QC-BCM', 'JUPITER-QC-SAGIS', 'JUPITER-QC-THX', 'JUPITER-QC-THXVAR', 'JUPITER-QC-SOLARIS']
+    }
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Check Boxes
+Referenced parameters
+?
+Server,DeploymentSet
+
+Enable filters
+?
+Filter starts at
+?
+1
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.133:8080/project/ORION/Clear-RedisCache
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+$Server = $ENV:Server
+ 
+[Array] $Applications = $ENV:Application -split ','
+ 
+$IISRoot = 'd$\VitalAxis\Websites-IIS'
+ 
+foreach($Application in $Applications){
+    [xml] $AppSettings = Get-Content "\\$Server\$IISRoot\$Application\Web.config"
+    [Array] $Endpoints = ($AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_ENDPOINTS | Select -ExpandProperty value) -split ','
+    $RedisDeploymentKey = $AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_DEPLOYMENTKEY | Select -ExpandProperty value
+    $RedisAccessKey = $AppSettings.configuration.appSettings.add | Where key -eq WCFG_REDIS_ACCESSKEY | Select -ExpandProperty value
+ 
+    foreach($Endpoint in $Endpoints){
+        $RedisHost = $Endpoint -replace '(.*?)(:)(\d+)', '$1'
+        $RedisPort = $Endpoint -replace '(.*?)(:)(\d+)', '$3'
+ 
+        [Array] $Keys = @()
+        [Array] $Keys = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey KEYS *
+ 
+        $Keys = $Keys | Where { $_ -match "[.]$RedisDeploymentKey[.]"}
+        
+        Write-Host "[$Application]  Count of Keys in Port $RedisPort = $($Keys.Count)"
+ 
+        foreach($Key in $Keys){
+            $ClearKey = ''
+            $ClearKeyPort = ''
+ 
+            $ClearKey = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey DEL $Key
+            if($ClearKey -match ':'){
+                $ClearKeyPort = $ClearKey -replace '.*?:(\d+)$', '$1'
+                $ClearKey = D:\Softwares\redis-cli.exe -h $RedisHost -p $ClearKeyPort -a $RedisAccessKey DEL $Key
+            }
+        }
+    }
+ 
+    Write-Host "After clearing, remaining Keys in $Application :"
+    foreach($Endpoint in $Endpoints){
+        $RedisHost = $Endpoint -replace '(.*?)(:)(\d+)', '$1'
+        $RedisPort = $Endpoint -replace '(.*?)(:)(\d+)', '$3'
+ 
+        [Array] $Keys = @()
+        [Array] $Keys = D:\Softwares\redis-cli.exe -h $RedisHost -p $RedisPort -a $RedisAccessKey KEYS *
+ 
+        $Keys = $Keys | Where { $_ -match "[.]$RedisDeploymentKey[.]"}
+        
+        Write-Host "Count of Keys in Port $RedisPort = $($Keys.Count)"
+    }
+    Write-Host ""
+}
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1

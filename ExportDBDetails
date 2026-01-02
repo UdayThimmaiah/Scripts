@@ -1,0 +1,85 @@
+
+# Export Database Info (Name, Size, Last Used)
+$OutputFile = '\\192.168.168.133\d$\VitalAxis\Jenkins_Build\ORION\Export\Database_Details.csv'
+
+[Array] $ServerInstances = $ENV:Server -split ','
+
+"Server = $ServerInstances"
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+$DatabaseInfo = "DatabaseName,DatabaseSizeMB,ModifiedDate,LastUserLookup,LastUserUpdate,Location`n"
+
+foreach($ServerInstance in $ServerInstances) {
+    $DatabaseList = @()
+    try {
+        $DatabaseList = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database master -Credential $Credentials -Query "SELECT d.name AS DatabaseName, SUM(mf.size * 8 / 1024) AS DatabaseSizeMB FROM sys.master_files mf JOIN sys.databases d ON mf.database_id = d.database_id GROUP BY d.name" -TrustServerCertificate -ErrorAction Stop
+    }
+    catch {
+        $_.Exception.Message
+    }
+
+    foreach($Database in $DatabaseList) {
+        $DatabaseName = ''
+        $DatabaseSizeMB = ''
+        $ModifiedDate = ''
+        $LastUserLookup = ''
+        $LastUserUpdate = ''
+        $Location = ''
+
+        $DatabaseName = $Database.DatabaseName
+        $DatabaseSizeMB = $Database.DatabaseSizeMB
+    
+        try {
+            $ModifiedDate = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $DatabaseName -Credential $Credentials -Query "IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Cases]') AND type in (N'U')) SELECT TOP 1 CreatedDate FROM Cases ORDER BY CreatedDate DESC;ELSE SELECT NULL AS CreatedDate;" -TrustServerCertificate -ErrorAction Stop
+            $ModifiedDate = $ModifiedDate | Select -ExpandProperty CreatedDate
+        }
+        catch {
+            $_.Exception.Message
+        }
+    
+        $Location = $ServerInstance
+    
+        try {
+            $LastUserLookupAndUpdate = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $DatabaseName -Credential $Credentials -Query "SELECT MAX(last_user_lookup) AS LastUserLookup, MAX(last_user_update) AS LastUserUpdate FROM sys.dm_db_index_usage_stats GROUP BY database_id HAVING DB_NAME(database_id) = '$($DatabaseName)';" -TrustServerCertificate -ErrorAction Stop
+            $LastUserLookup = $LastUserLookupAndUpdate | Select -ExpandProperty LastUserLookup
+            $LastUserUpdate = $LastUserLookupAndUpdate | Select -ExpandProperty LastUserUpdate
+        }
+        catch {
+            $_.Exception.Message -replace "`n", ' '
+        }
+
+        $DatabaseInfo += "$DatabaseName,$DatabaseSizeMB,$ModifiedDate,$LastUserLookup,$LastUserUpdate,$Location`n"
+    }
+}
+
+while(Test-Path $OutputFile) {
+    try {
+        Remove-Item -LiteralPath $OutputFile -Force -ErrorAction Stop
+    }
+    catch {}
+}
+
+try {
+    $TimeLimit = (Get-Date).AddMinutes(2)
+    while((Get-Date) -le $TimeLimit) {
+        try {
+            $DatabaseInfo | Set-Content -LiteralPath $OutputFile -ErrorAction Stop
+        }
+        catch {}
+    }
+    ""
+    "Successfully Saved Database Details to:"
+    "$OutputFile"
+    ""
+}
+catch {
+    ""
+    "Failed to save output to $OutputFile!"
+    throw $_
+}
+

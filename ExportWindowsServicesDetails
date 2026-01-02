@@ -1,0 +1,55 @@
+# Export Service Name and Bindings
+$OutputFile = '\\192.168.168.133\d$\VitalAxis\Jenkins_Build\ORION\Export\WindowsService_Details.csv'
+
+$WinServiceServers = $ENV:Server -split ','
+
+"Server = $WinServiceServers"
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+$ServiceList = "Name,Server,State,PhysicalPath`n"
+
+foreach($WinServiceServer in $WinServiceServers){
+    [Array] $Services = @()
+    [Array] $Services = Invoke-Command -ComputerName $WinServiceServer -ScriptBlock { 
+        $Services = Get-Service
+        $Services = $Services | Where Name -match 'VA_'
+        $Services = $Services | Sort -Property Name
+        $ServiceList = ""
+        foreach($Service in $Services){
+            $Name = ''
+            $State = ''
+            $PhysicalPath = ''
+
+            $Name = $Service.Name
+            $State = $Service.Status
+            $PhysicalPath = Get-WmiObject Win32_Service -Filter "Name='$($Name)'" | Select-Object -ExpandProperty PathName
+
+            $ServiceList += "$($Name),$($using:WinServiceServer),$($State),$($PhysicalPath)`n"
+        }
+        $ServiceList
+    } -Credential $Credentials
+    $ServiceList += $Services
+}
+
+if(Test-Path $OutputFile){
+    Remove-Item -LiteralPath $OutputFile -Force
+}
+
+try{
+    $ServiceList | Set-Content -LiteralPath $OutputFile
+    ""
+    "Successfully Saved Windows Service Details to:"
+    "$OutputFile"
+    ""
+}
+catch{
+    ""
+    "Failed to save output to $OutputFile!"
+    throw $_
+}
+

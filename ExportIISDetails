@@ -1,0 +1,56 @@
+# Export IIS Site Name, State, Physical Path and Bindings
+$OutputFile = '\\192.168.168.133\d$\VitalAxis\Jenkins_Build\ORION\Export\IISSite_Details.csv'
+
+$IISServers = $ENV:Server -split ','
+
+"Server = $IISServers"
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+$IISSiteList = "Name,Server,State,PhysicalPath,Bindings`n"
+
+foreach($IISServer in $IISServers){
+    [Array] $IISSites = @()
+    [Array] $IISSites = Invoke-Command -ComputerName $IISServer -ScriptBlock { 
+        $IISSites = Get-IISSite
+        $IISSites = $IISSites | Sort -Property Name
+        $IISSiteList = ""
+        foreach($IISSite in $IISSites){
+            $Name = ''
+            $State = ''
+            $PhysicalPath = ''
+            $Bindings = ''
+
+            $Name = $IISSite.Name
+            $State = $IISSite.State
+            $Bindings = (Get-IISSite $Name).Bindings.bindingInformation -join ' '
+            $PhysicalPath = Get-IISSite $Name | Select -ExpandProperty Applications | Select -ExpandProperty VirtualDirectories | Select -ExpandProperty PhysicalPath
+
+            $IISSiteList += "$($Name),$($using:IISServer),$($State),$($PhysicalPath),$($Bindings)`n"
+        }
+        $IISSiteList
+    } -Credential $Credentials
+    $IISSiteList += $IISSites
+}
+
+if(Test-Path $OutputFile){
+    Remove-Item -LiteralPath $OutputFile -Force
+}
+
+try{
+    $IISSiteList | Set-Content -LiteralPath $OutputFile
+    ""
+    "Successfully Saved IIS Site Details to:"
+    "$OutputFile"
+    ""
+}
+catch{
+    ""
+    "Failed to save output to $OutputFile!"
+    throw $_
+}
+

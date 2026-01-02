@@ -1,0 +1,52 @@
+# Export Jenkins Jobs Details
+$OutputFile = '\\192.168.168.133\d$\VitalAxis\Jenkins_Build\ORION\Export\JenkinsJobs_Details.csv'
+
+$JenkinsServers = $ENV:Server -split ','
+
+"Server = $JenkinsServers"
+
+$JobsRootPath = '\\192.168.168.133\d$\VitalAxis\Jenkins_Build\ORION\bin\Jenkins_Jobs\DevOps\Jenkins_Jobs_Categorized_By_Jenkins_Servers'
+
+$JenkinsJobsList = "Name,Server,Path,URL`n"
+
+foreach($JenkinsServer in $JenkinsServers){
+    [Array] $JenkinsJobs = @()
+    # [Array] $JenkinsJobs = Get-ChildItem -File -Recurse -LiteralPath "$JobsRootPath\$JenkinsServer"
+    # [Array] $JenkinsJobs = $JenkinsJobs | Where Name -eq 'config.xml'
+    [Array] $JenkinsJobs = cmd.exe /c dir /b /s "$JobsRootPath\$JenkinsServer"
+    [Array] $JenkinsJobs = $JenkinsJobs | Where { $_ -match '\\config.xml$' }
+    foreach($JenkinsJob in $JenkinsJobs){
+        $JobName = ''
+        $JobPath = ''
+        $JobURL = ''
+
+        # $JenkinsJobPath = $JenkinsJob.FullName
+        $JenkinsJobPath = $JenkinsJob
+
+        if(-not(Test-Path "$(Split-Path $JenkinsJobPath -Parent)\jobs")){
+            $JobName = Split-Path (Split-Path $JenkinsJobPath -Parent) -Leaf
+            $JobPath = (Split-Path $JenkinsJobPath -Parent).Replace("$JobsRootPath\$JenkinsServer",'') -replace '\\jobs', ''
+            $JobURL = "http://$($JenkinsServer):8080$($JobPath -replace '\\', '/job/')"
+
+            $JenkinsJobsList += "$($JobName),$($JenkinsServer),$($JobPath),$($JobURL)`n"
+        }
+    }
+}
+
+if(Test-Path $OutputFile){
+    Remove-Item -LiteralPath $OutputFile -Force
+}
+
+try{
+    $JenkinsJobsList | Set-Content -LiteralPath $OutputFile
+    ""
+    "Successfully Saved Jenkins Jobs Details to:"
+    "$OutputFile"
+    ""
+}
+catch{
+    ""
+    "Failed to save output to $OutputFile!"
+    throw $_
+}
+
