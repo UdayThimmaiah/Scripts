@@ -1,0 +1,491 @@
+$AzureClientId = ''
+$AzureSecretValue = ''
+$AzureTenantId = ''
+
+$AzureSubscription = ''
+
+Write-Host "Operation = $ENV:Operation"
+Write-Host "Application = $ENV:AppName"
+
+# Convert secret to credential
+$SecureAzureSecretValue = ConvertTo-SecureString -String $AzureSecretValue -AsPlainText -Force
+$AzureCredential = New-Object System.Management.Automation.PSCredential ($AzureClientId, $SecureAzureSecretValue)
+
+# Login
+Connect-AzAccount -ServicePrincipal -Credential $AzureCredential -Tenant $AzureTenantId -WarningAction SilentlyContinue
+Set-AzContext -Subscription $AzureSubscription | Out-Null
+
+# Split multiple app names using &&
+$appList = $ENV:AppName -split '&&' | ForEach-Object { $_.Trim() }
+
+foreach ($app in $appList) {
+
+    Write-Host "`n==============================="
+    Write-Host "Processing App: $app"
+    Write-Host "==============================="
+
+    # Get App Service details
+    $AzureApp = Get-AzWebApp -Name $app
+
+    if (-not $AzureApp) {
+        Write-Host "ERROR: App '$app' not found in subscription '$AzureSubscription'"
+        continue
+    }
+
+    try {
+        switch ($ENV:Operation) {
+            'Stop' {
+                Stop-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully STOPPED $app"
+            }
+            'Start' {
+                Start-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully STARTED $app"
+            }
+            'Restart' {
+                Restart-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully RESTARTED $app"
+            }
+            default {
+                Write-Host "ERROR: Unknown operation '$ENV:Operation'"
+            }
+        }
+    }
+    catch {
+        Write-Host "Error processing ${app}:"
+        Write-Host $_
+    }
+}
+##############################For Further Reference######################################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+4
+2
+Udaykumar T
+
+log out
+Dashboard
+VITAL-HUB
+AZURE
+QC
+Start-Stop-Restart
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+Operation
+Choices
+?
+Stop
+Start
+Restart
+Description
+?
+Plain text
+Preview
+Active Choices Parameter
+?
+
+Name
+AppName
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return [
+'acssmartsearch-qc',
+'agentdispatcher-qc',
+'adtagentdispatcher-qc',
+'Azuresftpblobapi-qc',
+'badmessage-qc',
+'BlobCorruptFileTracker-QC',
+'BlobEventGridBridgeExternalFunction-QC',
+'blobeventgridbridgefunction-qc',
+'case360ui-qc',
+'corecacheapi-qc',
+'CoreDistributionHttpTriggerFuncApp',
+'CoreDistributionTopicFuncApp',
+'corefax2-qc',
+'CoreFaxResponse-qc',
+'coreftp-qc',
+'corejobs-qc',
+'corejobsschedularv2-qc',
+'CoreJobTopicFunc-QC',
+'csvbatching-qc',
+'csvsplitter-qc',
+'customapi-qc',
+'daproxyfunctionapp-09425',
+'denialprediction-qc',
+'EmailACK-QC',
+'faxreprocess-qc',
+'FTPBatchedSessionFunction',
+'HeartBeatURLStatus-qc',
+'hl7batching-qc',
+'interfaceadmin-qc',
+'interfaceadminui-qc',
+'JUPITER-QC-SEARCH',
+'LabAdminInterfaceModule-QC',
+'LabAdminInterfaceModuleUI-QC',
+'labinterfacemodule-qc',
+'labinterfacemoduleui',
+'MassSpectrometer-qc',
+'messageackfiledrop-qc',
+'MessageAPI-QC',
+'ADTMessageAPI-QC',
+'messageattributes-qc',
+'MessageAuditFunction-qc',
+'messagefunction-qc',
+'adtmessagefunction-qc',
+'messagestatusupdate-qc',
+'palmpathology-qc',
+'pascsplitterprocfuncapp-qc',
+'PdfProcessor-QC',
+'pgxcoriell-qc',
+'Phiarchiveagent-qc',
+'pieriandaproxy-qc',
+'ProcessClientResponse-QC',
+'ProxyDispatcher-QC',
+'qcfilev4',
+'routingagent-qc',
+'SearchAPI-QC',
+'SearchApiQC',
+'SendVitalGoNotification-qc',
+'StoredDistributionStatusInCaseAudit-QC',
+'tablestorageservices-qc',
+'UserEventProcessing-App',
+'vaadtfileapi-qc',
+'vacoreapi-qc',
+'VaCoreDB-Archive-QC',
+'vahubconfigapi-qc',
+'vahubadtconfigapi-qc',
+'vainterfaceanalyzer',
+'VAIntEventMessage',
+'varulesaiprompt-qc	',
+'VaTrace-qc',
+'VAVendorMessageProxyAPI-QC	',
+'vitalgodaapi',
+'VitalGoNotificationTopic-qc',
+'vitalhubdiapi-qc',
+'Vitalhubhttpfileuploader-qc',
+'vitalhubprocessor-qc',
+'adtvitalhubprocessor-qc',
+'vitalhubruleapi-qc',
+'vafileapi-qc',
+'wisedxtopicfunction-qc',
+'xslprocessor-qc'
+];
+	
+
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+
+Enable filters
+?
+Filter starts at
+?
+1
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.131:8080/project/VITAL-HUB/AZURE/QC/Start-Stop-Restart
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+$AzureClientId = ''
+$AzureSecretValue = ''
+$AzureTenantId = ''
+ 
+$AzureSubscription = ''
+ 
+Write-Host "Operation = $ENV:Operation"
+Write-Host "Application = $ENV:AppName"
+ 
+# Convert secret to credential
+$SecureAzureSecretValue = ConvertTo-SecureString -String $AzureSecretValue -AsPlainText -Force
+$AzureCredential = New-Object System.Management.Automation.PSCredential ($AzureClientId, $SecureAzureSecretValue)
+ 
+# Login
+Connect-AzAccount -ServicePrincipal -Credential $AzureCredential -Tenant $AzureTenantId -WarningAction SilentlyContinue
+Set-AzContext -Subscription $AzureSubscription | Out-Null
+ 
+# Split multiple app names using &&
+$appList = $ENV:AppName -split '&&' | ForEach-Object { $_.Trim() }
+ 
+foreach ($app in $appList) {
+ 
+    Write-Host "`n==============================="
+    Write-Host "Processing App: $app"
+    Write-Host "==============================="
+ 
+    # Get App Service details
+    $AzureApp = Get-AzWebApp -Name $app
+ 
+    if (-not $AzureApp) {
+        Write-Host "ERROR: App '$app' not found in subscription '$AzureSubscription'"
+        continue
+    }
+ 
+    try {
+        switch ($ENV:Operation) {
+            'Stop' {
+                Stop-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully STOPPED $app"
+            }
+            'Start' {
+                Start-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully STARTED $app"
+            }
+            'Restart' {
+                Restart-AzWebApp -ResourceGroupName $AzureApp.ResourceGroup -Name $app -ErrorAction Stop
+                Write-Host "Successfully RESTARTED $app"
+            }
+            default {
+                Write-Host "ERROR: Unknown operation '$ENV:Operation'"
+            }
+        }
+    }
+    catch {
+        Write-Host "Error processing ${app}:"
+        Write-Host $_
+    }
+}
+ 
+Disconnect-AzAccount | Out-Null
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Editable Email Notification
+?
+
+Allows the user to disable the publisher, while maintaining the settings
+
+Disable Extended Email Publisher
+?
+Project From
+Project Recipient List
+?
+Comma-separated list of email address that should receive notifications for this project.
+vitalhub@vitalaxis.com,santhosh.s@starmarkit.com
+Project Reply-To List
+?
+Comma-separated list of email address that should be in the Reply-To header for this project.
+$DEFAULT_REPLYTO
+Content Type
+?
+
+Default Content Type
+Default Subject
+?
+$DEFAULT_SUBJECT
+Default Content
+?
+$DEFAULT_CONTENT
+
+AppName = $AppName
+Operation = $Operation
+Attachments
+?
+Can use wildcards like 'module/dist/**/*.zip'. See the @includes of Ant fileset for the exact format. The base directory is the workspace.
+Attach Build Log
+?
+
+Do Not Attach Build Log
+Content Token Reference
+?
+Advanced Settings
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1
+
+Disconnect-AzAccount | Out-Null
