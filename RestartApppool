@@ -1,0 +1,312 @@
+echo "**********************************************"
+
+$WebsiteName = $ENV:site_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+Restart-WebAppPool (Get-Website -Name "$ENV:site_name").applicationPool
+
+$info=Get-Website "$ENV:site_name"
+echo "$ENV:site_name has been" $info.State
+
+
+
+echo "**********************************************"
+###########For Reference full Job###############################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+4
+2
+Udaykumar T
+
+log out
+Dashboard
+INT
+INT_START-STOP-RESTART
+APPLICATION POOL-RECYCLE
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Active Choices Parameter
+?
+
+Name
+Deployments
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return['LIS','IMP','UPM','TLA','VPLABS','QUEST','THX','THXVAR','ADMIN','CONFIG','PULSE','DEV']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return['Select proper deployment']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Radio Buttons
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Parameter
+?
+
+Name
+site_name
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Deployments.equals("LIS")){
+return["INT-HUB-LIS","INT-HUB-LIS_vdPrint","INT-HUB-LIS-AnalyzerAPI","INT-HUB-LIS-PatientPortal","INT-HUB-LIS-SignalrAPI","INT-HUB-LIS-VAAPIServices","INT-HUB-LIS-VAWEBAPIServices","INT-HUB-LIS-VBHandler","INT-HUB-LIS-VDHandler","INT-HUB-LIS-VOAPI","INT-HUB-LIS-VOWEB","INT-QC-LIS","INT-QC-LIS_vdPrint","INT-QC-LIS-AnalyzerAPI","INT-QC-LIS-PatientPortal","INT-QC-LIS-SignalrAPI","INT-QC-LIS-VAAPIServices","INT-QC-LIS-VAWEBAPIServices","INT-QC-LIS-VBHandler","INT-QC-LIS-VDHandler","INT-QC-LIS-VOAPI","INT-QC-LIS-VOWEB","VitalAxis-LIS"]
+}
+if(Deployments.equals("VPLABS")){
+return["INT-HUB-VPLABS","INT-QC-VPLABS_vdPrint","INT-HUB-VPLABS-AnalyzerAPI","INT-HUB-VPLABS-PatientPortal","INT-HUB-VPLABS-SignalrAPI","INT-HUB-VPLABS-VAAPIServices","INT-HUB-VPLABS-VAWEBAPIServices","INT-HUB-VPLABS-VBHandler","INT-HUB-VPLABS-VDHandler","INT-HUB-VPLABS-VOAPI","INT-HUB-VPLABS-VOWEB","INT-QC-VPLABS","INT-QC-VPLABS-AnalyzerAPI","INT-QC-VPLABS-PatientPortal","INT-QC-VPLABS-SignalrAPI","INT-QC-VPLABS-VAAPIServices","INT-QC-VPLABS-VAWEBAPIServices","INT-QC-VPLABS-VBHandler","INT-QC-VPLABS-VDHandler","INT-QC-VPLABS-VOAPI","INT-QC-VPLABS-VOWEB"]
+}
+if(Deployments.equals("IMP")){
+return["INT-QC-IMP"]
+}
+if(Deployments.equals("QUEST")){
+return["INT-QC-QUEST","INT-QC-QUEST_vdPrint","INT-QC-QUEST-AnalyzerAPI","INT-QC-QUEST-SignalrAPI","INT-QC-QUEST-VAAPIServices","INT-QC-QUEST-VAWEBAPIServices","INT-QC-QUEST-VBHandler","INT-QC-QUEST-VDHandler","INT-QC-QUEST-VOAPI","INT-QC-QUEST-VOWEB"]
+}
+if(Deployments.equals("THX")){
+return["INT-QC-THX","INT-QC-THX_vdPrint","INT-QC-THX-AnalyzerAPI","INT-QC-THX-PatientPortal","INT-QC-THX-SignalrAPI","INT-QC-THX-VAAPIServices","INT-QC-THX-VAWEBAPIServices","INT-QC-THX-VBHandler","INT-QC-THX-VDHandler","INT-QC-THX-VOAPI","INT-QC-THX-VOWEB","INT-HUB-THX","INT-HUB-THX_vdPrint","INT-HUB-THX-AnalyzerAPI","INT-HUB-THX-PatientPortal","INT-HUB-THX-SignalrAPI","INT-HUB-THX-VAAPIServices","INT-HUB-THX-VAWEBAPIServices","INT-HUB-THX-VBHandler","INT-HUB-THX-VDHandler","INT-HUB-THX-VOAPI","INT-HUB-THX-VOWEB"]
+}
+if(Deployments.equals("THXVAR")){
+return["INT-QC-THXVAR","INT-QC-THXVAR_vdPrint","INT-QC-THXVAR-AnalyzerAPI","INT-QC-THXVAR-PatientPortal","INT-QC-THXVAR-SignalrAPI","INT-QC-THXVAR-VAAPIServices","INT-QC-THXVAR-VAWEBAPIServices","INT-QC-THXVAR-VBHandler","INT-QC-THXVAR-VDHandler","INT-QC-THXVAR-VOAPI","INT-QC-THXVAR-VOWEB","INT-HUB-THXVAR","INT-HUB-THXVAR_vdPrint","INT-HUB-THXVAR-AnalyzerAPI","INT-HUB-THXVAR-PatientPortal","INT-HUB-THXVAR-SignalrAPI","INT-HUB-THXVAR-VAAPIServices","INT-HUB-THXVAR-VAWEBAPIServices","INT-HUB-THXVAR-VBHandler","INT-HUB-THXVAR-VDHandler","INT-HUB-THXVAR-VOAPI","INT-HUB-THXVAR-VOWEB"]
+}
+if(Deployments.equals("TLA")){
+return["INT-QC-TLA","INT-QC-TLA_vdPrint","INT-QC-TLA-AnalyzerAPI","INT-QC-TLA-PatientPortal","INT-QC-TLA-SignalrAPI","INT-QC-TLA-VAAPIServices","INT-QC-TLA-VAWEBAPIServices","INT-QC-TLA-VBHandler","INT-QC-TLA-VDHandler","INT-QC-TLA-VOAPI","INT-QC-TLA-VOWEB"]
+}
+if(Deployments.equals("UPM")){
+return["INT-QC-UPM","INT-QC-UPM_vdPrint","INT-QC-UPM-AnalyzerAPI","INT-QC-UPM-SignalrAPI","INT-QC-UPM-VAAPIServices","INT-QC-UPM-VAWEBAPIServices","INT-QC-UPM-VBHandler","INT-QC-UPM-VDHandler","INT-QC-UPM-VOAPI","INT-QC-UPM-VOWEB"]
+}
+if(Deployments.equals("ADMIN")){
+return["INT-HUB-VAADMIN","INT-QC-VAADMIN","INT-QC-VITALADMIN","INT-QC-VITALADMINGraphQLAPI","INT-QC-VITALADMINLoginSearchAPI","INT-QC-VITALADMINReportAPI","INT-QC-VITALADMINSearchAPI"]
+}
+if(Deployments.equals("CONFIG")){
+return["INT-HUB-VACONFIG","INT-QC-VACONFIG"]
+}
+if(Deployments.equals("PULSE")){
+return["INT-HUB-VAPULSE","INT-QC-VAPULSE"]
+}
+if(Deployments.equals("STATIC")){
+return["INT-HUB-STATIC","INT-QC-STATIC"]
+}
+if(Deployments.equals("DEV")){
+return["INTERFACE-DEV-APIS","INTERFACE-DEV-CIIS"]
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+Referenced parameters
+?
+Deployments
+
+Enable filters
+?
+Filter starts at
+?
+1
+Choice Parameter
+?
+
+Name
+?
+state
+Choices
+?
+RESTART
+Description
+?
+Plain text
+Preview
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.131:8080/project/INT/INT_START-STOP-RESTART/APPLICATION%20POOL-RECYCLE
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+echo "**********************************************"
+ 
+$WebsiteName = $ENV:site_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+ 
+Restart-WebAppPool (Get-Website -Name "$ENV:site_name").applicationPool
+ 
+$info=Get-Website "$ENV:site_name"
+echo "$ENV:site_name has been" $info.State
+ 
+ 
+ 
+echo "**********************************************"
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1

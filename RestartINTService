@@ -1,0 +1,403 @@
+echo "**********************************************"
+
+Write-Host "Deployment = $ENV:Deployments"
+Write-Host "ServiceName = $ENV:service_name"
+Write-Host "Operation = $ENV:state"
+
+$ServiceName = $ENV:service_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+if($ENV:state -eq "STOP")
+{
+  #Stop-Service -Name $ServiceName -Confirm:$false
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Stop-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+
+elseif($ENV:state -eq "START")
+{
+  #Start-Service -Name $ServiceName
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Start-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+else
+{
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Restart-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+#$info=Get-Service $ServiceName -ComputerName "192.168.168.115"
+$info = Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {(Get-Service $using:ServiceName).Status} -Credential $Credentials
+WRITE-HOST ("$ENV:service_name has been " + $info.Value)
+
+
+
+echo "**********************************************"
+
+
+
+##########################For Reference Full#########################################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+4
+2
+Udaykumar T
+
+log out
+Dashboard
+INT
+INT_START-STOP-RESTART
+INTEGRATION-SERVICES
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Active Choices Parameter
+?
+
+Name
+Deployments
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return['LIS','UPM','TLA','VPLABS','QUEST','THX','THXVAR','PLUS','LABS','IMP','MIRACA','BCM','SAGIS','SOLARIS','MYLIS']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return['Select proper deployment']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Radio Buttons
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Parameter
+?
+
+Name
+service_name
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Deployments.equals("LIS")){
+    return["VA_INT_QC_LIS_INT_DF","VA_INT_QC_LIS_INT_L2LW700","VA_INT_QC_LIS_INT_MessagePush","VA_INT_QC_LIS_INT_PJ","VA_INT_QC_LIS_INT_W700","VA_INTEGRATION_QC_LIS_INT_MIRTH","VA_INT_DEV_LIS_INT_DF","VA_INT_DEV_LIS_INT_MessagePush"]
+}
+
+else if(Deployments.equals("UPM")){
+    return["VA_INT_QC_UPM_INT_DF","VA_INT_QC_UPM_INT_L2LW700","VA_INT_QC_UPM_INT_MessagePush","VA_INT_QC_UPM_INT_PJ","VA_INT_QC_UPM_INT_W700","VA_INT_QC_UPM_INT_ScheduleReports","VA_INTEGRATION_QC_UPM_INT_MIRTH","VA_INT_QC_UPM_INT_NOTIFICATIONJOBS"]
+}
+
+else if(Deployments.equals("TLA")){
+    return["VA_INT_QC_TLA_INT_DF","VA_INT_QC_TLA_INT_L2LW700","VA_INT_QC_TLA_INT_MessagePush","VA_INT_QC_TLA_INT_PJ","VA_INT_QC_TLA_INT_W700","VA_INTEGRATION_QC_TLA_INT_MIRTH"]
+}
+
+else if(Deployments.equals("VPLABS")){
+    return["VA_INT_QC_VPLABS_INT_DF","VA_INT_QC_VPLABS_INT_L2LW700","VA_INT_QC_VPLABS_INT_MessagePush","VA_INT_QC_VPLABS_INT_PJ","VA_INT_QC_VPLABS_INT_W700","VA_INT_QC_VPLABS_INT_ScheduleReports","VA_INT_QC_VPLABS_INT_MIRTH"]
+}
+
+else if(Deployments.equals("QUEST")){
+    return["VA_INT_QC_QUEST_INT_MessagePush","VA_INT_QC_QUEST_INT_DF","VA_INT_QC_QUEST_INT_W700"]
+}
+
+else if(Deployments.equals("THX")){
+    return["VA_INT_QC_THX_INT_DF","VA_INT_QC_THX_INT_L2LW700","VA_INT_QC_THX_INT_MessagePush","VA_INT_QC_THX_INT_PJ","VA_INT_QC_THX_INT_W700","VA_INT_QC_THX_MIRTH","VA_P4_SPRINT_THX_INT_DF","VA_P4_SPRINT_THX_INT_L2LW700","VA_P4_SPRINT_THX_INT_MessagePush","VA_P4_SPRINT_THX_INT_ScheduleReports","VA_P4_SPRINT_THX_INT_W700","VA_P4_QC_THX_INT_PJ","VA_INT_QC_THX_INT_DFEvent"]
+}
+
+else if (Deployments.equals("THXVAR")){
+    return["VA_INT_QC_THXVAR_INT_DF","VA_INT_QC_THXVAR_INT_L2LW700","VA_INT_QC_THXVAR_INT_MessagePush","VA_INT_QC_THXVAR_INT_PJ","VA_INT_QC_THXVAR_INT_W700","VA_INT_QC_THXVAR_MIRTH"]
+}
+
+else if(Deployments.equals("PLUS")){
+    return["VA_INT_QC_PLUS_INT_DF","VA_INT_QC_PLUS_INT_L2LW700","VA_INT_QC_PLUS_INT_MessagePush","VA_INT_QC_PLUS_INT_PJ","VA_INT_QC_PLUS_INT_ScheduleReports","VA_INT_QC_PLUS_INT_W700"]
+}
+
+else if(Deployments.equals("LABS")){
+    return["VA_INT_QC_LABS_INT_DF","VA_INT_QC_LABS_INT_L2LW700","VA_INT_QC_LABS_INT_MessagePush","VA_INT_QC_LABS_INT_PJ","VA_INT_QC_LABS_INT_ScheduleReports","VA_INT_QC_LABS_INT_W700","VA_INT_QC_LABS_INT_MIRTH"]
+}
+
+else if(Deployments.equals("IMP")){
+    return["VA_INT_QC_IMP_INT_DF","VA_INT_QC_IMP_INT_L2LW700","VA_INT_QC_IMP_INT_MessagePush","VA_INT_QC_IMP_INT_PJ","VA_INT_QC_IMP_INT_W700","VA_INT_QC_IMP_INT_MIRTH"]
+}
+
+else if(Deployments.equals("MIRACA")){
+    return["VA_INT_QC_MIRACA_INT_W700","VA_INT_QC_MIRACA_INT_MIRTH"]
+}
+
+else if(Deployments.equals("BCM")){
+    return["VA_INT_QC_BCM_INT_DF","VA_INT_QC_BCM_INT_L2LW700","VA_INT_QC_BCM_INT_MessagePush","VA_INT_QC_BCM_INT_PJ","VA_INT_QC_BCM_INT_ScheduleReports","VA_INT_QC_BCM_INT_W700"]
+}
+
+else if(Deployments.equals("SOLARIS")){
+    return["VA_INT_QC_SOLARIS_INT_DF","VA_INT_QC_SOLARIS_INT_L2LW700","VA_INT_QC_SOLARIS_INT_MessagePush","VA_INT_QC_SOLARIS_INT_PJ","VA_INT_QC_SOLARIS_INT_ScheduleReports","VA_INT_QC_SOLARIS_INT_W700"]
+}
+
+
+else if(Deployments.equals("SAGIS")){
+    return["VA_INT_QC_SAGIS_INT_DF","VA_INT_QC_SAGIS_INT_L2LW700","VA_INT_QC_SAGIS_INT_MessagePush","VA_INT_QC_SAGIS_INT_PJ","VA_INT_QC_SAGIS_INT_ScheduleReports","VA_INT_QC_SAGIS_INT_W700","VA_INT_QC_SAGIS_INT_W700"]
+}
+
+else if(Deployments.equals("MYLIS")){
+    return["VA_INT_QC_MYLIS_INT_W700","VA_INT_QC_MYLIS_INT_DF","VA_INT_QC_MYLIS_INT_MessagePush"]
+}
+
+
+
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+Referenced parameters
+?
+Deployments
+
+Enable filters
+?
+Filter starts at
+?
+1
+Choice Parameter
+?
+
+Name
+?
+state
+Choices
+?
+START
+STOP
+RESTART
+Description
+?
+Plain text
+Preview
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.131:8080/project/INT/INT_START-STOP-RESTART/INTEGRATION-SERVICES
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+echo "**********************************************"
+ 
+Write-Host "Deployment = $ENV:Deployments"
+Write-Host "ServiceName = $ENV:service_name"
+Write-Host "Operation = $ENV:state"
+ 
+$ServiceName = $ENV:service_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+ 
+if($ENV:state -eq "STOP")
+{
+  #Stop-Service -Name $ServiceName -Confirm:$false
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Stop-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+ 
+elseif($ENV:state -eq "START")
+{
+  #Start-Service -Name $ServiceName
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Start-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+else
+{
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Restart-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+#$info=Get-Service $ServiceName -ComputerName "192.168.168.115"
+$info = Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {(Get-Service $using:ServiceName).Status} -Credential $Credentials
+WRITE-HOST ("$ENV:service_name has been " + $info.Value)
+ 
+ 
+ 
+echo "**********************************************"
+ 
+ 
+ 
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1

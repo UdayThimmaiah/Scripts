@@ -1,0 +1,349 @@
+echo "**********************************************"
+
+$ServiceName = $ENV:service_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+if($ENV:state -eq "STOP")
+{
+  #Stop-Service -Name $ServiceName -Confirm:$false
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Stop-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+
+elseif($ENV:state -eq "START")
+{
+  #Start-Service -Name $ServiceName
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Start-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+else
+{
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Restart-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+#$info=Get-Service $ServiceName -ComputerName "192.168.168.115"
+$info = Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {(Get-Service $using:ServiceName).Status} -Credential $Credentials
+WRITE-HOST ("$ENV:service_name has been " + $info.Value)
+
+
+
+echo "**********************************************"
+
+
+#############Full for reference #########################3
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+4
+2
+Udaykumar T
+
+log out
+Dashboard
+INT
+INT_START-STOP-RESTART
+WINDOWS-SERVICES
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Active Choices Parameter
+?
+
+Name
+Deployments
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return['LIS','UPM','TLA','VPLABS','QUEST','THX','THXVAR']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return['Select proper deployment']
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Radio Buttons
+
+Enable filters
+?
+Filter starts at
+?
+1
+Active Choices Reactive Parameter
+?
+
+Name
+service_name
+Script
+Groovy Script
+?
+Script
+Groovy Script
+if(Deployments.equals("LIS")){
+return["VA_INT_QC_LIS_ElasticsSearch","VA_INT_QC_LIS_GenerateCoversheet","VA_INT_QC_LIS_GenerateMappingSheet","VA_INT_QC_LIS_GenerateMappingSheet_NYR","VA_INT_QC_LIS_GenerateWorkSheetForBulkProcessing","VA_INT_QC_LIS_L2LReportFileCopy","VA_INT_QC_LIS_L2LSupplimentReportGen","VA_INT_QC_LIS_PathologistDataSync","VA_INT_QC_LIS_ProcessCTREnrollments","VA_INT_QC_LIS_RescreeingRule","VA_INT_QC_LIS_ScheduledReportService","VA_INT_QC_LIS_SendSMSWindowsService","VA_INT_QC_LIS_SignoutandGeneratetReport","VA_INT_QC_LIS_SupplementalFileCopy","VA_INT_QC_LIS_Titan_SendSMSWindowsService","VA_INT_QC_LIS_VABulkOrderService","VA_INT_QC_LIS_VitalLogExport","VA_INT_QC_LIS_VitalOrdersDataSync","VA_INT_QC_LIS_VitalSupplyDataSync"]
+}
+if(Deployments.equals("UPM")){
+return["VA_INT_QC_UPM_ElasticsSearch","VA_INT_QC_UPM_GenerateCoversheet","VA_INT_QC_UPM_GenerateMappingSheet","VA_INT_QC_UPM_GenerateMappingSheet_NYR","VA_INT_QC_UPM_GenerateWorkSheetForBulkProcessing","VA_INT_QC_UPM_L2LReportFileCopy","VA_INT_QC_UPM_L2LSupplimentReportGen","VA_INT_QC_UPM_PathologistDataSync","VA_INT_QC_UPM_ProcessCTREnrollments","VA_INT_QC_UPM_RescreeingRule","VA_INT_QC_UPM_ScheduledReportService","VA_INT_QC_UPM_SendSMSWindowsService","VA_INT_QC_UPM_SignoutandGeneratetReport","VA_INT_QC_UPM_SupplementalFileCopy","VA_INT_QC_UPM_Titan_SendSMSWindowsService","VA_INT_QC_UPM_VABulkOrderService","VA_INT_QC_UPM_VitalLogExport","VA_INT_QC_UPM_VitalOrdersDataSync","VA_INT_QC_UPM_VitalSupplyDataSync"]
+}
+if(Deployments.equals("TLA")){
+return["VA_INT_QC_TLA_ElasticsSearch","VA_INT_QC_TLA_GenerateCoversheet","VA_INT_QC_TLA_GenerateMappingSheet","VA_INT_QC_TLA_GenerateMappingSheet_NYR","VA_INT_QC_TLA_GenerateWorkSheetForBulkProcessing","VA_INT_QC_TLA_L2LReportFileCopy","VA_INT_QC_TLA_L2LSupplimentReportGen","VA_INT_QC_TLA_PathologistDataSync","VA_INT_QC_TLA_ProcessCTREnrollments","VA_INT_QC_TLA_RescreeingRule","VA_INT_QC_TLA_ScheduledReportService","VA_INT_QC_TLA_SendSMSWindowsService","VA_INT_QC_TLA_SignoutandGeneratetReport","VA_INT_QC_TLA_SupplementalFileCopy","VA_INT_QC_TLA_Titan_SendSMSWindowsService","VA_INT_QC_TLA_VABulkOrderService","VA_INT_QC_TLA_VitalLogExport","VA_INT_QC_TLA_VitalOrdersDataSync","VA_INT_QC_TLA_VitalSupplyDataSync"]
+}
+if(Deployments.equals("VPLABS")){
+return["VA_INT_QC_VPLABS_ElasticsSearch","VA_INT_QC_VPLABS_GenerateCoversheet","VA_INT_QC_VPLABS_GenerateMappingSheet","VA_INT_QC_VPLABS_GenerateMappingSheet_NYR","VA_INT_QC_VPLABS_GenerateWorkSheetForBulkProcessing","VA_INT_QC_VPLABS_L2LReportFileCopy","VA_INT_QC_VPLABS_L2LSupplimentReportGen","VA_INT_QC_VPLABS_PathologistDataSync","VA_INT_QC_VPLABS_ProcessCTREnrollments","VA_INT_QC_VPLABS_RescreeingRule","VA_INT_QC_VPLABS_ScheduledReportService","VA_INT_QC_VPLABS_SendSMSWindowsService","VA_INT_QC_VPLABS_SignoutandGeneratetReport","VA_INT_QC_VPLABS_SupplementalFileCopy","VA_INT_QC_VPLABS_Titan_SendSMSWindowsService","VA_INT_QC_VPLABS_VABulkOrderService","VA_INT_QC_VPLABS_VitalLogExport","VA_INT_QC_VPLABS_VitalOrdersDataSync","VA_INT_QC_VPLABS_VitalSupplyDataSync"]
+}
+if(Deployments.equals("QUEST")){
+return["VA_INT_QC_QUEST_ElasticsSearch","VA_INT_QC_QUEST_GenerateCoversheet","VA_INT_QC_QUEST_GenerateMappingSheet","VA_INT_QC_QUEST_GenerateMappingSheet_NYR","VA_INT_QC_QUEST_GenerateWorkSheetForBulkProcessing","VA_INT_QC_QUEST_L2LReportFileCopy","VA_INT_QC_QUEST_L2LSupplimentReportGen","VA_INT_QC_QUEST_PathologistDataSync","VA_INT_QC_QUEST_ProcessCTREnrollments","VA_INT_QC_QUEST_RescreeingRule","VA_INT_QC_QUEST_ScheduledReportService","VA_INT_QC_QUEST_SendSMSWindowsService","VA_INT_QC_QUEST_SignoutandGeneratetReport","VA_INT_QC_QUEST_SupplementalFileCopy","VA_INT_QC_QUEST_Titan_SendSMSWindowsService","VA_INT_QC_QUEST_VABulkOrderService","VA_INT_QC_QUEST_VitalLogExport","VA_INT_QC_QUEST_VitalOrdersDataSync","VA_INT_QC_QUEST_VitalSupplyDataSync"]
+}
+if(Deployments.equals("THX")){
+return["VA_INT_QC_THX_ElasticsSearch","VA_INT_QC_THX_GenerateCoversheet","VA_INT_QC_THX_GenerateMappingSheet","VA_INT_QC_THX_GenerateMappingSheet_NYR","VA_INT_QC_THX_GenerateWorkSheetForBulkProcessing","VA_INT_QC_THX_L2LReportFileCopy","VA_INT_QC_THX_L2LSupplimentReportGen","VA_INT_QC_THX_PathologistDataSync","VA_INT_QC_THX_ProcessCTREnrollments","VA_INT_QC_THX_RescreeingRule","VA_INT_QC_THX_ScheduledReportService","VA_INT_QC_THX_SendSMSWindowsService","VA_INT_QC_THX_SignoutandGeneratetReport","VA_INT_QC_THX_SupplementalFileCopy","VA_INT_QC_THX_Titan_SendSMSWindowsService","VA_INT_QC_THX_VABulkOrderService","VA_INT_QC_THX_VitalLogExport","VA_INT_QC_THX_VitalOrdersDataSync","VA_INT_QC_THX_VitalSupplyDataSync","VA_INT_HUB_THX_ElasticsSearch","VA_INT_HUB_THX_GenerateCoversheet","VA_INT_HUB_THX_GenerateMappingSheet","VA_INT_HUB_THX_GenerateMappingSheet_NYR","VA_INT_HUB_THX_GenerateWorkSheetForBulkProcessing","VA_INT_HUB_THX_L2LReportFileCopy","VA_INT_HUB_THX_L2LSupplimentReportGen","VA_INT_HUB_THX_PathologistDataSync","VA_INT_HUB_THX_ProcessCTREnrollments","VA_INT_HUB_THX_RescreeingRule","VA_INT_HUB_THX_ScheduledReportService","VA_INT_HUB_THX_SendSMSWindowsService","VA_INT_HUB_THX_SignoutandGeneratetReport","VA_INT_HUB_THX_SupplementalFileCopy","VA_INT_HUB_THX_Titan_SendSMSWindowsService","VA_INT_HUB_THX_VABulkOrderService","VA_INT_HUB_THX_VitalLogExport","VA_INT_HUB_THX_VitalOrdersDataSync","VA_INT_HUB_THX_VitalSupplyDataSync"]
+}
+if(Deployments.equals("THXVAR")){
+return["VA_INT_QC_THXVAR_ElasticsSearch","VA_INT_QC_THXVAR_GenerateCoversheet","VA_INT_QC_THXVAR_GenerateMappingSheet","VA_INT_QC_THXVAR_GenerateMappingSheet_NYR","VA_INT_QC_THXVAR_GenerateWorkSheetForBulkProcessing","VA_INT_QC_THXVAR_L2LReportFileCopy","VA_INT_QC_THXVAR_L2LSupplimentReportGen","VA_INT_QC_THXVAR_PathologistDataSync","VA_INT_QC_THXVAR_ProcessCTREnrollments","VA_INT_QC_THXVAR_RescreeingRule","VA_INT_QC_THXVAR_ScheduledReportService","VA_INT_QC_THXVAR_SendSMSWindowsService","VA_INT_QC_THXVAR_SignoutandGeneratetReport","VA_INT_QC_THXVAR_SupplementalFileCopy","VA_INT_QC_THXVAR_Titan_SendSMSWindowsService","VA_INT_QC_THXVAR_VABulkOrderService","VA_INT_QC_THXVAR_VitalLogExport","VA_INT_QC_THXVAR_VitalOrdersDataSync","VA_INT_QC_THXVAR_VitalSupplyDataSync","VA_INT_HUB_THXVAR_ElasticsSearch","VA_INT_HUB_THXVAR_GenerateCoversheet","VA_INT_HUB_THXVAR_GenerateMappingSheet","VA_INT_HUB_THXVAR_GenerateMappingSheet_NYR","VA_INT_HUB_THXVAR_GenerateWorkSheetForBulkProcessing","VA_INT_HUB_THXVAR_L2LReportFileCopy","VA_INT_HUB_THXVAR_L2LSupplimentReportGen","VA_INT_HUB_THXVAR_PathologistDataSync","VA_INT_HUB_THXVAR_ProcessCTREnrollments","VA_INT_HUB_THXVAR_RescreeingRule","VA_INT_HUB_THXVAR_ScheduledReportService","VA_INT_HUB_THXVAR_SendSMSWindowsService","VA_INT_HUB_THXVAR_SignoutandGeneratetReport","VA_INT_HUB_THXVAR_SupplementalFileCopy","VA_INT_HUB_THXVAR_Titan_SendSMSWindowsService","VA_INT_HUB_THXVAR_VABulkOrderService","VA_INT_HUB_THXVAR_VitalLogExport","VA_INT_HUB_THXVAR_VitalOrdersDataSync","VA_INT_HUB_THXVAR_VitalSupplyDataSync"]
+}
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Choice Type
+
+Single Select
+Referenced parameters
+?
+Deployments
+
+Enable filters
+?
+Filter starts at
+?
+1
+Choice Parameter
+?
+
+Name
+?
+state
+Choices
+?
+START
+STOP
+RESTART
+Description
+?
+Plain text
+Preview
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.131:8080/project/INT/INT_START-STOP-RESTART/WINDOWS-SERVICES
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+echo "**********************************************"
+ 
+$ServiceName = $ENV:service_name
+$Username = "Devopsappadmin"
+$Password = "Qwe@123"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+ 
+if($ENV:state -eq "STOP")
+{
+  #Stop-Service -Name $ServiceName -Confirm:$false
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Stop-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+ 
+elseif($ENV:state -eq "START")
+{
+  #Start-Service -Name $ServiceName
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Start-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+else
+{
+  Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {Restart-Service -Name $using:ServiceName -Confirm:$false} -Credential $Credentials
+}
+#$info=Get-Service $ServiceName -ComputerName "192.168.168.115"
+$info = Invoke-Command -ComputerName "192.168.168.115" -ScriptBlock {(Get-Service $using:ServiceName).Status} -Credential $Credentials
+WRITE-HOST ("$ENV:service_name has been " + $info.Value)
+ 
+ 
+ 
+echo "**********************************************"
+ 
+ 
+ 
+ 
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1
+

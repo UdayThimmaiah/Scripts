@@ -1,0 +1,222 @@
+PowerShell .\Restart-IISSite.ps1 -Server $ENV:Server -Operation $ENV:Operation -IISSite $ENV:IISSite
+####################################################################################################
+Skip to content
+[Jenkins]Jenkins
+Search (CTRL+K)
+5
+3
+Udaykumar T
+
+log out
+Dashboard
+ORION
+Restart-IISSite
+Restart-IISSite
+Configuration
+Configure
+
+General
+
+Source Code Management
+
+Build Triggers
+
+Build Environment
+
+Build Steps
+
+Post-build Actions
+
+General
+
+Description
+Start / Stop / Restart (IIS Site + App Pool)
+Plain text
+Preview
+
+Enable project-based security
+
+Discard old builds
+?
+GitLab Connection
+
+
+Use alternative credential
+
+This project is parameterized
+?
+Choice Parameter
+?
+
+Name
+?
+Operation
+Choices
+?
+Check_Current_State
+Start
+Stop
+Restart
+Description
+?
+Operation to perform on the selected IIS Site
+Plain text
+Preview
+Active Choices Reactive Reference Parameter
+?
+
+Name
+Server
+Script
+Groovy Script
+?
+Script
+Groovy Script
+return """<select name=\"value\" class=\"jenkins-input\" onchange=\"setTimeout(() => {document.getElementById(`IISSite dropdown MultiLevelMultiSelect 0`).value = this.value; document.getElementById(`IISSite dropdown MultiLevelMultiSelect 0`).dispatchEvent(new Event('change'));}, 0);\" >
+<option value="" selected disabled>-- Select an IIS Server --</option>
+<option value="192.168.168.45">192.168.168.45</option>
+<option value="192.168.168.60">192.168.168.60</option>
+<option value="192.168.168.81">192.168.168.81</option>
+</select>"""
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Fallback Script
+Groovy Script
+return 'Select a server...'
+The script is already approved
+
+Use Groovy Sandbox
+?
+Additional classpath
+?
+Add entry
+Description
+?
+Server where the IIS Site is hosted
+Choice Type
+
+Formatted HTML
+Referenced parameters
+?
+Advanced
+Edited
+Extended Choice Parameter
+?
+
+Name
+?
+IISSite
+Description
+IIS Site Name ( Maintained in a Properties file ) ( Run "Update-IISSitesList" Job to update the file )
+Basic Parameter Types
+?
+Multi-level Parameter Types
+?
+Parameter Type
+?
+
+Multi-Level Single Select
+Property File
+?
+D:\VitalAxis\Jenkins_Build\ORION\Properties\IISSiteNames.properties
+Value
+Server,IISSite
+JSON Parameter Type
+?
+Add Parameter
+
+Throttle builds
+?
+Job config history change message
+?
+
+Execute concurrent builds if necessary
+?
+JDK
+JDK to be used for this project
+
+(System)
+
+Restrict where this project can be run
+?
+Advanced
+Edited
+Source Code Management
+None
+Git
+?
+Build Triggers
+
+Trigger builds remotely (e.g., from scripts)
+?
+
+Build after other projects are built
+?
+
+Build periodically
+?
+
+Build when a change is pushed to GitLab. GitLab webhook URL: http://192.168.168.133:8080/project/ORION/Restart-IISSite/Restart-IISSite
+?
+
+Enable Artifactory trigger
+
+Poll SCM
+?
+Build Environment
+
+Delete workspace before build starts
+
+Mask passwords and regexes (and enable global passwords)
+?
+
+Use secret text(s) or file(s)
+?
+
+Provide Configuration files
+?
+
+Add timestamps to the Console Output
+
+Ant/Ivy-Artifactory Integration
+
+Generic-Artifactory Integration
+
+Gradle-Artifactory Integration
+
+Inspect build log for published build scans
+
+Maven3-Artifactory Integration
+
+Set jenkins user build variables
+?
+
+With Ant
+?
+Build Steps
+PowerShell
+?
+
+Command
+See the list of available environment variables
+1
+PowerShell .\Restart-IISSite.ps1 -Server $ENV:Server -Operation $ENV:Operation -IISSite $ENV:IISSite
+
+Stop On Errors
+?
+
+Use PowerShell profile
+?
+Advanced
+Add build step
+Post-build Actions
+Add post-build action
+Save
+Apply
+REST API
+Jenkins 2.452.1
