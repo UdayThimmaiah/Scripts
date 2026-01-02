@@ -1,0 +1,39 @@
+# Paths to the CSV files
+$csv1 = "D:\Softwares\Temp\192.168.168.60.csv"
+$csv2 = "D:\Softwares\Temp\192.168.168.81.csv"
+$csv3 = "D:\Softwares\Temp\192.168.168.45.csv"
+
+# Read and extract SiteNames
+$sites1 = Import-Csv $csv1 | Select-Object -ExpandProperty SiteName
+$sites2 = Import-Csv $csv2 | Select-Object -ExpandProperty SiteName
+$sites3 = Import-Csv $csv3 | Select-Object -ExpandProperty SiteName
+
+# Track occurrences across the 3 sources
+$siteMap = @{}
+
+foreach ($site in $sites1) {
+    $siteMap[$site] = @($siteMap[$site] + '192.168.168.60')
+}
+foreach ($site in $sites2) {
+    $siteMap[$site] = @($siteMap[$site] + '192.168.168.81')
+}
+foreach ($site in $sites3) {
+    $siteMap[$site] = @($siteMap[$site] + '192.168.168.45')
+}
+
+# Filter duplicates (present in 2 or more servers)
+$duplicates = $siteMap.GetEnumerator() | Where-Object {
+    $_.Value.Count -ge 2
+} | ForEach-Object {
+    [pscustomobject]@{
+        SiteName = $_.Key
+        Servers  = ($_.Value -join ", ")
+    }
+}
+
+# Show results
+$duplicates | Format-Table -AutoSize
+
+# Optional: export to CSV
+$duplicates | Export-Csv "D:\Softwares\Temp\Duplicate_Websites.csv" -NoTypeInformation
+

@@ -1,0 +1,24 @@
+import jenkins.model.*
+import hudson.model.*
+
+def now = new Date()
+def threeMonthsAgo = now.time - (90L * 24 * 60 * 60 * 1000)  // 90 days in ms
+
+def jobs = Jenkins.instance.getAllItems(Job.class)
+def disabledCount = 0
+
+jobs.each { job ->
+    def lastBuild = job.getLastBuild()
+    def lastBuildDate = lastBuild?.getTime()
+    def unused = (lastBuildDate == null || lastBuildDate.time < threeMonthsAgo)
+
+    if (unused && job.isBuildable() && !job.isDisabled()) {
+        job.setDisabled(true)
+        job.save()
+        disabledCount++
+        println "Disabled job: ${job.fullName}"
+    }
+}
+
+println "Total jobs disabled: ${disabledCount}"
+
