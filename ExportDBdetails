@@ -1,0 +1,56 @@
+
+$OutputFile = 'C:\Users\udaykumar.t\Downloads\Database_Info_Export.csv'
+
+$ServerInstances = @('192.168.168.26', '192.168.168.27', '192.168.168.94')
+
+$DatabaseInfo = "DatabaseName,Location,Status,DatabaseSizeGB,ModifiedDate,LastUserLookup,LastUserUpdate`n"
+
+foreach ($ServerInstance in $ServerInstances) {
+    $DatabaseList = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database master -Query "
+        SELECT 
+            d.name AS DatabaseName, 
+            d.state_desc AS Status,
+            SUM(mf.size * 8.0 / 1024 / 1024) AS DatabaseSizeGB
+        FROM sys.master_files mf 
+        JOIN sys.databases d ON mf.database_id = d.database_id 
+        GROUP BY d.name, d.state_desc
+    "
+
+    foreach ($Database in $DatabaseList) {
+        $DatabaseName = $Database.DatabaseName
+        $DatabaseSizeGB = "{0:N2}" -f $Database.DatabaseSizeGB
+        $Status = $Database.Status
+        $Location = $ServerInstance
+
+        # Last modified date from Cases table
+        $ModifiedDateResult = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $DatabaseName -Query "
+            IF EXISTS (
+                SELECT * FROM sys.objects 
+                WHERE object_id = OBJECT_ID(N'[dbo].[Cases]') AND type = 'U'
+            )
+            SELECT TOP 1 CreatedDate FROM Cases ORDER BY CreatedDate DESC;
+            ELSE
+            SELECT NULL AS CreatedDate;
+        " -ErrorAction SilentlyContinue
+
+        $ModifiedDate = if ($ModifiedDateResult) { $ModifiedDateResult.CreatedDate } else { "" }
+
+        # Lookup & update stats
+        $StatsResult = Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $DatabaseName -Query "
+            SELECT 
+                MAX(last_user_lookup) AS LastUserLookup, 
+                MAX(last_user_update) AS LastUserUpdate 
+            FROM sys.dm_db_index_usage_stats 
+            WHERE database_id = DB_ID('$DatabaseName');
+        " -ErrorAction SilentlyContinue
+
+        $LastUserLookup = if ($StatsResult) { $StatsResult.LastUserLookup } else { "" }
+        $LastUserUpdate = if ($StatsResult) { $StatsResult.LastUserUpdate } else { "" }
+
+        $DatabaseInfo += "$DatabaseName,$Location,$Status,$DatabaseSizeGB,$ModifiedDate,$LastUserLookup,$LastUserUpdate`n"
+    }
+}
+
+# Export to CSV file
+$DatabaseInfo | Set-Content -LiteralPath $OutputFile
+
