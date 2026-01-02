@@ -1,0 +1,35 @@
+"-----------------------------"
+"UserName   = $ENV:UserName"
+"Server     = $ENV:Server"
+"-----------------------------"
+
+$PropertyMapping = ConvertFrom-StringData (Get-Content "D:\VitalAxis\Jenkins_Build\ORION\Orion.properties" -Raw)
+$Username = $PropertyMapping."va.orion.username"
+$Password = $PropertyMapping."va.orion.password"
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [PSCredential]::new("$Username", $SecurePassword)
+
+$RemoveAccessQuery = @"
+DROP USER IF EXISTS [$ENV:UserName]
+GO
+"@
+
+$Databases = Invoke-Sqlcmd -ServerInstance $ENV:Server -Database 'master' -Credential $Credentials -Query "SELECT name FROM sys.databases" -TrustServerCertificate | Select -ExpandProperty name
+
+foreach($Database in $Databases) {
+    try {
+        Invoke-Sqlcmd -ServerInstance $ENV:Server -Database $Database -Credential $Credentials -Query $RemoveAccessQuery -TrustServerCertificate -ErrorAction Stop
+    }
+    catch {}
+}
+
+$RemoveAccessQuery = @"
+DROP LOGIN [$ENV:UserName]
+GO
+"@
+
+try {
+    Invoke-Sqlcmd -ServerInstance $ENV:Server -Database 'master' -Credential $Credentials -Query $RemoveAccessQuery -TrustServerCertificate
+}
+catch {}
+
