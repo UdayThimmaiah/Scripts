@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." default="va.main.Deploy">
+    <!-- FOR IF ELSE CONDITION TO WORK -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="lib_ext/ant-contrib.jar"/>
+        </classpath>
+    </taskdef>
+    <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="lib_ext/ant-contrib.jar"/>
+    
+    <taskdef name="classloadertask" classname="org.apache.tools.ant.taskdefs.ClassloaderTask" classpath="lib_ext/ant-classloadertask.jar"/>
+    
+    <description>VitalAxis Backup LogStash Config Files Script</description>
+
+    <path id="javax.classpath">
+        <pathelement location="lib_ext\groovy-3.0.24.jar" />
+        <pathelement location="lib_ext\groovy-jsr223-3.0.24.jar" />
+    </path>
+    
+    <path id="vabuild.library">
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <!-- <classloadertask classpathRef="mail.path" loader="thread"/> -->
+    <path id="mail.path">
+        <pathelement location="lib_ext/java-mail-1.4.4.jar"/>
+    </path>
+    
+    <!-- ************************************************************ --> 
+    <target name="va.prop.set.touch.time" unless="touch.time">
+        <tstamp>
+            <format property="touch.time" pattern="yyyyMMddHHmmss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <tstamp>
+            <format property="Date" pattern="yyyy-MM-dd HH:mm:ss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <property environment="env" />
+        <property name="Original_Build_Number" value="${env.BUILD_NUMBER}"/>
+
+        <script language="groovy" manager="javax" classpathref="javax.classpath">
+            def Build_Number = project.getProperty("Original_Build_Number");
+            def Touch_Time = project.getProperty("touch.time");
+            if(Build_Number.length() == 1) project.setProperty("Build_Id", (("00" + Build_Number) + '_' + Touch_Time));
+            else if(Build_Number.length() == 2) project.setProperty("Build_Id", (("0" + Build_Number) + '_' + Touch_Time));
+            else project.setProperty("Build_Id", (Build_Number + '_' + Touch_Time));
+        </script>
+    </target>
+
+
+    <!-- Display Input values -->
+    <target name="va.display.input.values">
+        <echo>*********************************** Inputs ***********************************</echo>
+        <echo>Build_Id		=	${Build_Id}</echo>
+        <echo>Server		=	${Server}</echo>
+        <echo>Date		=	${Date}</echo>
+        <echo>*****************************************************************************</echo>
+    </target>
+
+    
+    <!-- ************************************************************ -->	
+    <target name="va.logstashconfigfiles.set.properties">
+
+        <property name="va.logstashconfigfiles.folder.configfiles.source" value="${Server}"/>
+
+        <propertyregex property="ServerIP"
+            input="${Server}"
+            regexp="(\\\\)(\d+\.\d+\.\d+\.\d+)(\\\w[$]\\.*)"
+            replace="\2"
+            global="true" />
+        <property name="va.logstashconfigfiles.folder.backup.folder" value="D:\VitalAxis\ConfigFiles-Backup\Logstash\${ServerIP}"/>
+        
+        <property name="logstashconfigfiles.includes" 
+            value="**\configfiles\*.conf,
+                    **\config\*.conf" />
+
+    </target>
+
+    
+    <!-- ************************************************************ -->	
+    <target name="va.logstashconfigfiles.create.folders">
+        <mkdir dir="${va.logstashconfigfiles.folder.backup.folder}" />
+    </target>
+
+
+    <!-- ************************************************************ -->
+    <!-- Copy Config files -->
+    <target name="va.logstashconfigfiles.copy.configfiles" description="Copy logstash config files">
+        <echo message="****************************************************************************************"/> 
+        <echo message="******************************* Copy LogStash Config files ***********************************"/> 
+        <echo message="****************************************************************************************"/> 
+
+        <!-- Copy Config files to Backup folder -->
+        <copy todir="${va.logstashconfigfiles.folder.backup.folder}" overwrite="true">
+            <fileset dir="${va.logstashconfigfiles.folder.configfiles.source}" includes="${logstashconfigfiles.includes}" />
+        </copy>
+
+    </target>
+    
+
+    <!-- ************************************************************ -->		
+    <!-- Main Target. Executes other targets. --> 
+    <target name="va.main.Deploy" depends="va.prop.set.touch.time,va.display.input.values,va.logstashconfigfiles.set.properties,va.logstashconfigfiles.create.folders,va.logstashconfigfiles.copy.configfiles">
+    </target>
+
+</project>

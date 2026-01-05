@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." default="main">
+    <!-- FOR IF ELSE CONDITION TO WORK -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="lib_ext/ant-contrib.jar"/>
+        </classpath>
+    </taskdef>
+    <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="lib_ext/ant-contrib.jar"/>
+    
+    <taskdef name="classloadertask" classname="org.apache.tools.ant.taskdefs.ClassloaderTask" classpath="lib_ext/ant-classloadertask.jar"/>
+    
+    <description>VitalAxis Update Jenkins Job Git Branch Parameter</description>
+
+    <!-- Include jar to use "for Loop" -->
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="lib_ext\ant-contrib.jar"/>
+        </classpath>
+    </taskdef>
+
+    <!-- Include jar to use "javascript" -->
+    <!-- <path id="javax.classpath">
+        <pathelement location="lib_ext\nashorn-core-15.4.jar" />
+        <pathelement location="lib_ext\asm-9.4.jar" />
+        <pathelement location="lib_ext\asm-util-9.4.jar" />
+    </path> -->
+
+    <path id="javax.classpath">
+        <pathelement location="lib_ext\groovy-3.0.24.jar" />
+        <pathelement location="lib_ext\groovy-jsr223-3.0.24.jar" />
+    </path>
+    
+    <path id="vabuild.library">
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <!-- <classloadertask classpathRef="mail.path" loader="thread"/> -->
+    <path id="mail.path">
+        <pathelement location="lib_ext/java-mail-1.4.4.jar"/>
+    </path>
+
+    
+    <!-- ************************************************************ --> 
+    <!-- Sets the touch time that needs to be used for the build. If the param is sent, then an existing folder can be used. -->
+    <target name="va.prop.set.touch.time" unless="touch.time">
+        <tstamp>
+            <format property="touch.time" pattern="yyyyMMddHHmmss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <tstamp>
+            <format property="Date" pattern="yyyy-MM-dd HH:mm:ss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <property environment="env" />
+        <property name="Original_Build_Number" value="${env.BUILD_NUMBER}"/>
+
+        <script language="groovy" manager="javax" classpathref="javax.classpath">
+            def Build_Number = project.getProperty("Original_Build_Number");
+            def Touch_Time = project.getProperty("touch.time");
+            if(Build_Number.length() == 1) project.setProperty("Build_Id", (("00" + Build_Number) + '_' + Touch_Time));
+            else if(Build_Number.length() == 2) project.setProperty("Build_Id", (("0" + Build_Number) + '_' + Touch_Time));
+            else project.setProperty("Build_Id", (Build_Number + '_' + Touch_Time));
+        </script>
+    </target>
+
+
+    <!-- Display Input values -->
+    <target name="va.display.input.values">
+        <echo>*********************************** Inputs ***********************************</echo>
+        <echo>Build_Id			=	${Build_Id}</echo>
+        <echo>Date			=	${Date}</echo>
+        <echo>Environment		=	${Environment}</echo>
+        <echo>ApplicationSelection	=	${ApplicationSelection}</echo>
+        <echo>ApplicationList		=	${ApplicationList}</echo>
+        <echo>GitWebBranch		=	${Git_Web_Branch}</echo>
+        <echo>GitAPIBranch		=	${Git_API_Branch}</echo>
+        <echo>*****************************************************************************</echo>
+    </target>
+
+    
+    <!-- ************************************************************ -->
+    <target name="va.branchupdate.set.properties"> 
+        <!-- <property name="va.branchupdate.team.jobfolder.source" location="C:\ProgramData\Jenkins\.jenkins\jobs\JUPITER\jobs\${Environment}\jobs"/> -->
+        <!-- <property name="va.branchupdate.team.jobfolder.source" location="C:\ProgramData\Jenkins\.jenkins\jobs\REPORTS\jobs"/> -->
+        
+        <property name="va.branchupdate.includes"
+            value="config.xml" />
+
+        <property name="va.branchupdate.excludes"
+            value="**\builds\**" />
+    </target>
+
+    
+    <!-- ************************************************************ -->
+    <target name="va.branchupdate.update.gitbranch"> 
+        <for list="${ApplicationList}" param="application" delimiter=","> 
+            <sequential> 
+                <replaceregexp flags="g" byline="true">
+                    <regexp pattern='(git\.webapi\.branch\s*=\s*)(Titan_Release_)([^\s&lt;]+)'/>
+                    <substitution expression='\1${Git_API_Branch}'/>
+                    <fileset dir="${va.branchupdate.team.jobfolder.source}" includes="**/@{application}/config.xml"/>
+                </replaceregexp>
+                
+                <replaceregexp flags="g" byline="true">
+                    <regexp pattern='(git\.web\.branch\s*=\s*)(Titan_Release_)([^\s&lt;]+)'/>
+                    <substitution expression='\1${Git_Web_Branch}'/>
+                    <fileset dir="${va.branchupdate.team.jobfolder.source}" includes="**/@{application}/config.xml"/>
+                </replaceregexp>
+            </sequential> 
+        </for>
+    </target>
+
+    
+    <!-- ************************************************************ -->
+    <target name="va.branchupdate.restart.jenkins"> 
+        <exec dir="." executable="PowerShell">
+            <arg line="Restart-Service -Name 'Jenkins' -Force"/>
+        </exec>
+    </target>
+    <target name="va.branchupdate.reload.jenkins"> 
+        <exec dir="." executable="PowerShell">
+            <arg line="cmd /c curl -X POST 'http://192.168.168.130:8080/reload' --user Devopsappadmin:116224c254fe20a7f9d6c78bd2e354f1df"/>
+        </exec>
+    </target>
+
+
+    <!-- ************************************************************ -->
+    <!-- Main Target. --> 
+    <target name="main" depends="va.prop.set.touch.time,va.display.input.values,va.branchupdate.set.properties">
+        <antcall target="va.branchupdate.update.gitbranch"/>
+        <!-- <antcall target="va.branchupdate.restart.jenkins"/> -->
+        <antcall target="va.branchupdate.reload.jenkins"/>
+    </target>
+
+</project>

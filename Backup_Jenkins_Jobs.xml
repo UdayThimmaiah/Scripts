@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." default="va.main.Deploy">
+    <!-- FOR IF ELSE CONDITION TO WORK -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="lib_ext/ant-contrib.jar"/>
+        </classpath>
+    </taskdef>
+    <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="lib_ext/ant-contrib.jar"/>
+    
+    <taskdef name="classloadertask" classname="org.apache.tools.ant.taskdefs.ClassloaderTask" classpath="lib_ext/ant-classloadertask.jar"/>
+    
+    <description>Vitalaxis Backup Jenkins Job Definition Files Script</description>
+
+    <path id="javax.classpath">
+        <pathelement location="lib_ext\groovy-3.0.24.jar" />
+        <pathelement location="lib_ext\groovy-jsr223-3.0.24.jar" />
+    </path>
+    
+    <path id="vabuild.library">
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <!-- <classloadertask classpathRef="mail.path" loader="thread"/> -->
+    <path id="mail.path">
+        <pathelement location="lib_ext/java-mail-1.4.4.jar"/>
+    </path>
+    
+    <!-- ************************************************************ --> 
+    <!-- Sets the touch time that needs to be used for the build. If the param is sent, then an existing folder can be used. -->
+    <target name="va.prop.set.touch.time" unless="touch.time">
+        <tstamp>
+            <format property="touch.time" pattern="yyyyMMddHHmmss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <tstamp>
+            <format property="Date" pattern="yyyy-MM-dd HH:mm:ss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <property environment="env" />
+        <property name="Original_Build_Number" value="${env.BUILD_NUMBER}"/>
+
+        <script language="groovy" manager="javax" classpathref="javax.classpath">
+            def Build_Number = project.getProperty("Original_Build_Number");
+            def Touch_Time = project.getProperty("touch.time");
+            if(Build_Number.length() == 1) project.setProperty("Build_Id", (("00" + Build_Number) + '_' + Touch_Time));
+            else if(Build_Number.length() == 2) project.setProperty("Build_Id", (("0" + Build_Number) + '_' + Touch_Time));
+            else project.setProperty("Build_Id", (Build_Number + '_' + Touch_Time));
+        </script>
+    </target>
+
+
+    <!-- Display Input values -->
+    <target name="va.display.input.values">
+        <echo>*********************************** Inputs ***********************************</echo>
+        <echo>Build_Id		=	${Build_Id}</echo>
+        <echo>Server		=	${Server}</echo>
+        <echo>Date		=	${Date}</echo>
+        <echo>*****************************************************************************</echo>
+    </target>
+
+    
+    <!-- ************************************************************ -->	
+    <target name="va.jenkinsjobs.set.properties">
+        <property name="va.jenkinsjobs.bin.folder" location="bin" />
+        
+        <property name="va.jenkinsjobs.folder.build.git.version" location="${va.jenkinsjobs.bin.folder}\Jenkins_Jobs\DevOps\Jenkins_Jobs_Categorized_By_Jenkins_Servers\${Server}"/>
+
+        <property name="va.jenkinsjobs.folder.buildfiles.source" location="C:\ProgramData\Jenkins\.jenkins\jobs"/>
+        
+        <property name="jenkinsjobs.includes"
+                value="**\buildfiles\**,
+                        **\PowerShell_Script\**,
+                        **\*.xml,
+                        **\*.ps1,
+                        **\*.groovy" />
+
+        <property name="jenkinsjobs.excludes"
+                value="**\builds\**,
+                        **\buildspace\**,
+                        **\BuildSpace\**,
+                        **\bin\**,
+                        **\ant\**,
+                        **\apache-ant\**,
+                        **\lib\**,
+                        **\lib_ext\**" />
+    </target>
+
+    
+    <!-- ************************************************************ -->	
+    <target name="va.jenkinsjobs.create.folders">
+        <mkdir dir="${va.jenkinsjobs.folder.build.git.version}" />
+    </target>
+    
+    
+    <!-- ************************************************************ -->	
+    <target name="va.jenkinsjobs.git.pull">
+        <echo message="****************************************************************************************"/> 
+        <echo message="*********************************** Git Pull ******************************************"/> 
+        <echo message="****************************************************************************************"/> 
+
+        <!--
+        <exec dir="${va.jenkinsjobs.folder.build.git.version}" executable="cmd.exe">
+            <arg line="/c git clone -b ${Git_Branch} git@vagit.vitalaxis.com:DevOps/DevOps.git"/>
+        </exec>
+        -->
+        <!--
+        <exec dir="${va.jenkinsjobs.bin.folder}\Jenkins_Jobs" executable="git">
+            <arg line="clone -b Jenkins_Jobs http://lohith.jayanna:Yy9v4R8WLmuq_xgygE_k@vagit.vitalaxis.com/DevOps/DevOps.git"/>
+        </exec> 
+        -->
+        
+        <exec dir="${va.jenkinsjobs.bin.folder}\Jenkins_Jobs\DevOps" executable="git">
+            <arg line="pull"/>
+        </exec>
+
+    </target>
+
+
+    <!-- ************************************************************ -->
+    <!-- Copy Jenkins_Jobs -->
+    <target name="va.jenkinsjobs.copy.buildfiles" description="Copy build script files">
+        <echo message="****************************************************************************************"/> 
+        <echo message="******************************* Copy job files ***********************************"/> 
+        <echo message="****************************************************************************************"/> 
+
+        <delete failonerror="false" dir="${va.jenkinsjobs.folder.build.git.version}" />
+        
+        <!-- Copy build files to Output folder -->
+        <copy todir="${va.jenkinsjobs.folder.build.git.version}" overwrite="true">
+            <fileset dir="${va.jenkinsjobs.folder.buildfiles.source}" includes="${jenkinsjobs.includes}" excludes="${jenkinsjobs.excludes}" />
+        </copy>
+
+    </target>
+
+    
+    <!-- ************************************************************ --> 
+    <!-- Push to Jenkins_BuildFiles Branch -->
+    <target name="va.jenkinsjobs.push">
+        <echo message="****************************************************************************************"/> 
+        <echo message="**************************** Pushing to Jenkins_Jobs Branch ***************************************"/> 
+        <echo message="****************************************************************************************"/> 
+        
+        <echo></echo>
+
+        <echo>Pushing to Jenkins_Jobs Branch...</echo>
+        <exec dir="${va.jenkinsjobs.folder.build.git.version}" executable="git">
+            <arg line="add ."/>
+        </exec>
+        
+        <exec dir="${va.jenkinsjobs.folder.build.git.version}" executable="git">
+            <arg line='commit -m "Updated Jenkins Jobs as on ${Date}"'/>
+        </exec>
+        
+        <exec dir="${va.jenkinsjobs.folder.build.git.version}" executable="git">
+            <arg line="push"/>
+        </exec>
+    </target>
+
+
+    <!-- ************************************************************ --> 
+    <!-- Push to Git -->
+    <target name="call.va.Deploy">
+        <antcall target="va.jenkinsjobs.push"/>
+    </target>
+    
+
+    <!-- ************************************************************ -->		
+    <!-- Main Target. Executes other targets. --> 
+    <target name="va.main.Deploy" depends="va.prop.set.touch.time,va.display.input.values,va.jenkinsjobs.set.properties,va.jenkinsjobs.git.pull,va.jenkinsjobs.copy.buildfiles">
+        <antcall target="call.va.Deploy"/>
+    </target>
+
+</project>

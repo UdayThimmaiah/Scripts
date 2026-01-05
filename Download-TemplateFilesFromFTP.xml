@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." default="va.main.Deploy">
+    <!-- FOR IF ELSE CONDITION TO WORK -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="lib_ext/ant-contrib.jar"/>
+        </classpath>
+    </taskdef>
+    <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="lib_ext/ant-contrib.jar"/>
+    
+    <taskdef name="classloadertask" classname="org.apache.tools.ant.taskdefs.ClassloaderTask" classpath="lib_ext/ant-classloadertask.jar"/>
+    
+    <description>VitalAxis Download Template Files from FTP Artifactory Script</description>
+
+    <!-- Include jar to use "javascript" -->
+    <!-- <path id="javax.classpath">
+        <pathelement location="lib_ext\nashorn-core-15.4.jar" />
+        <pathelement location="lib_ext\asm-9.4.jar" />
+        <pathelement location="lib_ext\asm-util-9.4.jar" />
+    </path> -->
+
+    <path id="javax.classpath">
+        <pathelement location="lib_ext\groovy-3.0.24.jar" />
+        <pathelement location="lib_ext\groovy-jsr223-3.0.24.jar" />
+    </path>
+    
+    <path id="vabuild.library">
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+
+    <!-- <classloadertask classpathRef="mail.path" loader="thread"/> -->
+    <path id="mail.path">
+        <pathelement location="lib_ext/java-mail-1.4.4.jar"/>
+    </path>
+    
+    <!-- ************************************************************ -->
+    <!-- Sets the touch time that needs to be used for the build. If the param is sent, then an existing folder can be used. -->
+    <target name="va.prop.set.touch.time" unless="touch.time">
+        <tstamp>
+            <format property="touch.time" pattern="yyyyMMddHHmmss" offset="0" unit="hour"/>
+        </tstamp>
+
+        <property environment="env" />
+        <property name="Original_Build_Number" value="${env.BUILD_NUMBER}"/>
+
+        <script language="groovy" manager="javax" classpathref="javax.classpath">
+            def Build_Number = project.getProperty("Original_Build_Number");
+            def Touch_Time = project.getProperty("touch.time");
+            if(Build_Number.length() == 1) project.setProperty("Build_Id", (("00" + Build_Number) + '_' + Touch_Time));
+            else if(Build_Number.length() == 2) project.setProperty("Build_Id", (("0" + Build_Number) + '_' + Touch_Time));
+            else project.setProperty("Build_Id", (Build_Number + '_' + Touch_Time));
+        </script>
+    </target>
+
+
+    <!-- Display Input values -->
+    <target name="va.display.input.values">
+        <echo>*********************************** Inputs ***********************************</echo>
+        <echo>Application	=	${Application}</echo>
+        <echo>TemplateType	=	${TemplateType}</echo>
+        <echo>ExecutionId	=	${ExecutionId}</echo>
+        <echo>IISServer		=	${IISServer}</echo>
+        <echo>FilesServer	=	${FilesServer}</echo>
+        <echo>*****************************************************************************</echo>
+    </target>
+
+    
+    <!-- ************************************************************ -->
+    <target name="va.templatefiles.set.properties">
+        <property name="va.templatefiles.download.folder" location="bin" />
+
+        <property name="va.templatefiles.bin.folder" location="bin" />
+
+        <propertyregex property="Deployment"
+            input="${Application}"
+            regexp="^\w+-\w+-"
+            replace=""
+            global="true" />
+
+        <if>
+            <equals arg1="${TemplateType}" arg2="StandardTemplate" />
+            <then>
+                <property name="FTP.TemplateFile" value="${ExecutionId}_StandardTemplates.zip" />
+                <property name="templatefiles.deploy.path" location="\\${IISServer}\d$\VitalAxis\Websites-IIS\${Application}\Config" />
+            </then>
+        </if>
+        <if>
+            <equals arg1="${TemplateType}" arg2="ReportTemplate" />
+            <then>
+                <property name="FTP.TemplateFile" value="${ExecutionId}_StandardTemplates.zip" />
+                <property name="templatefiles.deploy.path" location="\\${IISServer}\d$\VitalAxis\Websites-IIS\${Application}\Config" />
+            </then>
+        </if>
+        <if>
+            <equals arg1="${TemplateType}" arg2="ExcelTemplate" />
+            <then>
+                <property name="FTP.TemplateFile" value="${ExecutionId}_StandardTemplates.zip" />
+                <property name="templatefiles.deploy.path" location="\\${IISServer}\d$\VitalAxis\Websites-IIS\${Application}\Config" />
+            </then>
+        </if>
+        <if>
+            <equals arg1="${TemplateType}" arg2="VDTemplate" />
+            <then>
+                <property name="FTP.TemplateFile" value="${ExecutionId}_VDTemplates.zip" />
+                <property name="templatefiles.deploy.path" location="\\${FilesServer}\d$\VitalAxis\Website-Files\VitalAxis-IIS\${Application}\PrintDataRequest" />
+            </then>
+        </if>
+    </target>
+    
+    
+    <!-- ************************************************************ -->
+    <!-- Download from FTP Folder -->
+    <target name="va.templatefiles.download.files">
+        <echo message="****************************************************************************************"/> 
+        <echo message="*********************************** Download Files from FTP Artifactory ******************************************"/> 
+        <echo message="****************************************************************************************"/> 
+
+        <if>
+            <available file="${templatefiles.deploy.path}\${FTP.TemplateFile}"/>
+            <then>
+                <echo>File has already been downloaded</echo>
+            </then>
+            <else>
+                <scp failonerror="true" port="${FTP.Port}" sftp="${FTP.sftp}" trust="true" file="${FTP.Userid}:${FTP.Password}@${FTP.Server}:${FTP.AZRemoteDir}/${Deployment}/${ExecutionId}/${FTP.TemplateFile}" todir="${templatefiles.deploy.path}" >
+                </scp>
+            </else>
+        </if>
+
+    </target>
+
+    
+    <!-- ************************************************************ -->
+    <!-- Deploy to Application Folder -->
+    <target name="va.templatefiles.deploy">
+        <echo message="****************************************************************************************"/> 
+        <echo message="**************************** Deploy Template Files to Application ***************************************"/> 
+        <echo message="****************************************************************************************"/> 
+        
+        <echo></echo>
+
+        <echo>Expanding ${templatefiles.deploy.path}\${FTP.TemplateFile} into ${templatefiles.deploy.path}</echo>
+        <!-- <unzip src="${templatefiles.deploy.path}\${FTP.TemplateFile}" dest="${templatefiles.deploy.path}"></unzip> -->
+        <exec dir="." executable="PowerShell.exe" failonerror="true">
+            <arg line="Expand-Archive -Path ${templatefiles.deploy.path}\${FTP.TemplateFile} -DestinationPath ${templatefiles.deploy.path} -Force;"/>
+        </exec>
+
+        <delete file="${templatefiles.deploy.path}\${FTP.TemplateFile}"/>
+    </target>
+
+
+    <!-- ************************************************************ -->
+    <!-- Deploy -->
+    <target name="call.va.Deploy">
+        <antcall target="va.templatefiles.deploy"/>
+    </target>
+    
+
+    <!-- ************************************************************ -->
+    <!-- Main Target. Executes other targets. --> 
+    <target name="va.main.Deploy" depends="va.prop.set.touch.time,va.display.input.values,va.templatefiles.set.properties,va.templatefiles.download.files">
+        <antcall target="call.va.Deploy"/>
+    </target>
+
+</project>
